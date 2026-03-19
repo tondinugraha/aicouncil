@@ -1,6 +1,7 @@
 # Dev
 _bmad
 .claude
+.claude-work
 .mcp.json
 CLAUDE.md
 
@@ -45,5 +46,4 @@ htmlcov/
 *.env.local
 
 # Knowledge store (runtime-generated)
-.gemini-mcp/
-.aicouncil-knowledge/
+.aicouncil/

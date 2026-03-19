@@ -11,6 +11,7 @@ from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from aicouncil.client import get_client
+from aicouncil.exceptions import AiCouncilError
 from aicouncil.schemas.responses import (
     AlternativesResult,
     BrainstormResult,
@@ -86,7 +87,10 @@ def get_knowledge_context(
             entries = retriever.store.get_for_context(file_paths=file_paths, tags=tags)
 
         return retriever.format_for_prompt(entries)
-    except Exception as e:
+    except (ImportError, FileNotFoundError) as e:
+        logger.warning(f"Knowledge context unavailable: {e}")
+        return ""
+    except AiCouncilError as e:
         logger.warning(f"Failed to load knowledge context: {e}")
         return ""
 
@@ -443,12 +447,21 @@ async def research_document(
             output_file_path=None,
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Document research failed: {e}")
         return DocumentResearchResult(
             document_title="Error",
             document_type="unknown",
-            executive_summary=f"Analysis failed: {str(e)}",
+            executive_summary=f"Analysis failed: {e}",
+            key_insights=[],
+            output_file_path=None,
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in research_document: {e}")
+        return DocumentResearchResult(
+            document_title="Error",
+            document_type="unknown",
+            executive_summary=f"Unexpected error: {e}",
             key_insights=[],
             output_file_path=None,
         )
@@ -604,14 +617,23 @@ Provide:
             dependencies=project_context.dependencies,
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Codebase scan failed: {e}")
         return CodebaseScanResult(
             project_name="Unknown",
             project_type="unknown",
             total_files=0,
             total_lines=0,
-            architecture_summary=f"Scan failed: {str(e)}",
+            architecture_summary=f"Scan failed: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in scan_codebase: {e}")
+        return CodebaseScanResult(
+            project_name="Unknown",
+            project_type="unknown",
+            total_files=0,
+            total_lines=0,
+            architecture_summary=f"Unexpected error: {e}",
         )
 
 
@@ -698,11 +720,17 @@ Provide:
             related_files=[r.path for r in related_contexts],
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"File critique failed: {e}")
         return FileAnalysisResult(
             file_path=file_path,
-            file_summary=f"Analysis failed: {str(e)}",
+            file_summary=f"Analysis failed: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in critique_file: {e}")
+        return FileAnalysisResult(
+            file_path=file_path,
+            file_summary=f"Unexpected error: {e}",
         )
 
 
@@ -798,11 +826,17 @@ async def analyze_dependencies(
             ],
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Dependency analysis failed: {e}")
         return DependencyAnalysisResult(
             total_modules=0,
-            recommendations=[f"Analysis failed: {str(e)}"],
+            recommendations=[f"Analysis failed: {e}"],
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in analyze_dependencies: {e}")
+        return DependencyAnalysisResult(
+            total_modules=0,
+            recommendations=[f"Unexpected error: {e}"],
         )
 
 
@@ -843,11 +877,17 @@ async def remember(
             message=f"Knowledge saved as {knowledge_type} (ID: {entry_id})",
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Failed to save knowledge: {e}")
         return MemoryResult(
             success=False,
-            message=f"Failed to save: {str(e)}",
+            message=f"Failed to save: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in remember: {e}")
+        return MemoryResult(
+            success=False,
+            message=f"Unexpected error: {e}",
         )
 
 
@@ -881,13 +921,21 @@ async def recall(
             context_snippet=retriever.format_for_prompt(entries),
         )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Failed to recall knowledge: {e}")
         return RecallResult(
             query=query,
             total_found=0,
             entries=[],
-            context_snippet=f"Recall failed: {str(e)}",
+            context_snippet=f"Recall failed: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in recall: {e}")
+        return RecallResult(
+            query=query,
+            total_found=0,
+            entries=[],
+            context_snippet=f"Unexpected error: {e}",
         )
 
 
@@ -919,16 +967,22 @@ async def forget(
                 message=f"Entry {entry_id} not found",
             )
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Failed to delete knowledge: {e}")
         return MemoryResult(
             success=False,
-            message=f"Delete failed: {str(e)}",
+            message=f"Delete failed: {e}",
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error in forget: {e}")
+        return MemoryResult(
+            success=False,
+            message=f"Unexpected error: {e}",
         )
 
 
 @mcp.tool()
-async def show_knowledge_summary() -> dict:
+async def show_knowledge_summary() -> MemoryResult:
     """
     List all saved project knowledge with counts by type.
     """
@@ -939,15 +993,20 @@ async def show_knowledge_summary() -> dict:
 
         store = KnowledgeStore()
         summary = store.get_summary()
-        return summary.model_dump()
+        type_breakdown = ", ".join(f"{k}: {v}" for k, v in summary.entries_by_type.items())
+        msg = (
+            f"Total: {summary.total_entries} entries. "
+            f"By type: {type_breakdown or 'none'}. "
+            f"Validated: {summary.validated_count}, Stale: {summary.stale_count}."
+        )
+        return MemoryResult(success=True, message=msg)
 
-    except Exception as e:
+    except AiCouncilError as e:
         logger.error(f"Failed to get knowledge summary: {e}")
-        return {
-            "error": str(e),
-            "total_entries": 0,
-            "message": "Failed to load knowledge summary",
-        }
+        return MemoryResult(success=False, message=f"Failed to load knowledge summary: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected error in show_knowledge_summary: {e}")
+        return MemoryResult(success=False, message=f"Unexpected error: {e}")
 
 
 # ============================================================================

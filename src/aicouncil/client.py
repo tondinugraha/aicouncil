@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from aicouncil.config import ModelCategory, get_config, get_model_config
 from aicouncil.exceptions import ConfigError, ModelUnavailableError, OpenRouterError
@@ -98,19 +98,11 @@ class OpenRouterClient:
             try:
                 text = await self._send_request(body)
                 return self._parse_response(text, response_model)
-            except ValidationError as e:
-                logger.warning(f"Response validation failed (attempt {attempt + 1}): {e}")
-                last_error = e
-                if attempt == max_attempts - 1:
-                    return self._error_response(
-                        f"Failed to get valid structured response after {max_attempts} attempts",
-                        response_model,
-                    )
             except OpenRouterError as e:
                 logger.warning(f"OpenRouter API error (attempt {attempt + 1}): {e}")
                 last_error = e
                 if attempt < max_attempts - 1:
-                    backoff = 2**attempt
+                    backoff = min(2**attempt, 30)
                     logger.debug(f"Retrying in {backoff}s...")
                     await asyncio.sleep(backoff)
 
@@ -242,13 +234,15 @@ class OpenRouterClient:
 
         try:
             data = json.loads(json_text)
-            return response_model.model_validate(data)
         except json.JSONDecodeError:
-            logger.warning(f"Failed to parse JSON: {json_text[:200]}...")
-            raise ValidationError.from_exception_data(
-                "JSON parse error",
-                [{"type": "value_error", "msg": "Invalid JSON in response"}],
-            )
+            logger.warning(f"Failed to parse JSON from response: {json_text[:200]}...")
+            return self._error_response("Invalid JSON in model response", response_model)
+
+        try:
+            return response_model.model_validate(data)
+        except Exception as e:
+            logger.warning(f"Response validation failed: {e}")
+            return self._error_response(f"Response validation failed: {e}", response_model)
 
     def _extract_json(self, text: str) -> str:
         """Extract JSON from response text, handling markdown code blocks."""
@@ -258,7 +252,7 @@ class OpenRouterClient:
         if code_block_match:
             return code_block_match.group(1).strip()
 
-        json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
+        json_match = re.search(r"(\{[\s\S]*?\}|\[[\s\S]*?\])", text)
         if json_match:
             return json_match.group(1).strip()
 

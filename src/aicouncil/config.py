@@ -80,7 +80,7 @@ def load_config() -> Config:
     }
 
     # Try to load project-specific config if it exists
-    project_config_path = Path.cwd() / "aicouncil.yaml"
+    project_config_path = Path.cwd() / "aicouncil" / "config.yaml"
     if project_config_path.exists():
         try:
             import yaml
@@ -98,8 +98,14 @@ def load_config() -> Config:
                         config_dict["temperature"] = project_config["temperature"]
         except ImportError:
             pass
-        except Exception:
-            pass
+        except yaml.YAMLError as e:
+            import logging
+
+            logging.getLogger(__name__).warning(f"Failed to parse {project_config_path}: {e}")
+        except OSError as e:
+            import logging
+
+            logging.getLogger(__name__).warning(f"Failed to read {project_config_path}: {e}")
 
     return Config(**config_dict)
 

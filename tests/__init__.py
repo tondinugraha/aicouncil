@@ -1,1 +1,1 @@
-"""Tests for Gemini MCP Server."""
+"""Tests for AI Council MCP Server."""

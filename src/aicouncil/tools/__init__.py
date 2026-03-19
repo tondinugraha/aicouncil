@@ -7,6 +7,11 @@ from aicouncil.prompts.base import BasePrompts
 from aicouncil.prompts.workflows import WorkflowPrompts
 
 
+def _escape_braces(text: str) -> str:
+    """Escape curly braces so str.format() treats them as literals."""
+    return text.replace("{", "{{").replace("}", "}}")
+
+
 def build_critique_prompt(
     content: str,
     content_type: str,
@@ -21,9 +26,9 @@ def build_critique_prompt(
     content_guidance = WorkflowPrompts.get_content_guidance(content_type)
 
     prompt = BasePrompts.CRITIQUE.format(
-        content_type=content_type,
-        content=content,
-        context=f"{context}\n\n{content_guidance}",
+        content_type=_escape_braces(content_type),
+        content=_escape_braces(content),
+        context=_escape_braces(f"{context}\n\n{content_guidance}"),
         severity_filter=severity_filter,
     )
 
@@ -46,9 +51,9 @@ def build_brainstorm_prompt(
     full_context = f"{context}\n\n{type_context}" if type_context else context
 
     prompt = BasePrompts.BRAINSTORM.format(
-        topic=topic,
-        context=full_context,
-        constraints=constraints_text,
+        topic=_escape_braces(topic),
+        context=_escape_braces(full_context),
+        constraints=_escape_braces(constraints_text),
         num_ideas=num_ideas,
     )
 
@@ -70,9 +75,9 @@ def build_validate_prompt(
     )
 
     prompt = BasePrompts.VALIDATE.format(
-        validation_type=validation_type,
-        content=content,
-        reference_section=reference_section,
+        validation_type=_escape_braces(validation_type),
+        content=_escape_braces(content),
+        reference_section=_escape_braces(reference_section),
         validation_criteria=validation_criteria,
     )
 
@@ -88,9 +93,9 @@ def build_challenge_prompt(
     assumptions_text = "\n".join(f"{i + 1}. {a}" for i, a in enumerate(assumptions))
 
     prompt = BasePrompts.CHALLENGE.format(
-        assumptions=assumptions_text,
-        domain=domain,
-        context=context,
+        assumptions=_escape_braces(assumptions_text),
+        domain=_escape_braces(domain),
+        context=_escape_braces(context),
     )
 
     return f"{BasePrompts.SYSTEM_PERSONA}\n\n{prompt}"
@@ -111,9 +116,9 @@ def build_gaps_prompt(
     content_guidance = WorkflowPrompts.get_content_guidance(content_type)
 
     prompt = BasePrompts.FIND_GAPS.format(
-        content=content,
-        content_type=content_type,
-        expected_coverage_section=coverage_section,
+        content=_escape_braces(content),
+        content_type=_escape_braces(content_type),
+        expected_coverage_section=_escape_braces(coverage_section),
     )
 
     return f"{BasePrompts.SYSTEM_PERSONA}\n\n{prompt}\n\n{content_guidance}"
@@ -129,9 +134,9 @@ def build_alternatives_prompt(
     constraints_text = "\n".join(f"- {c}" for c in constraints) if constraints else "None specified"
 
     prompt = BasePrompts.ALTERNATIVES.format(
-        current_approach=current_approach,
-        constraints=constraints_text,
-        context=context,
+        current_approach=_escape_braces(current_approach),
+        constraints=_escape_braces(constraints_text),
+        context=_escape_braces(context),
         num_alternatives=num_alternatives,
     )
 
@@ -147,8 +152,8 @@ def build_research_prompt(
     depth_config = WorkflowPrompts.get_research_depth(depth)
 
     prompt = BasePrompts.RESEARCH.format(
-        query=query,
-        context=context,
+        query=_escape_braces(query),
+        context=_escape_braces(context),
         depth=depth_config,
     )
 

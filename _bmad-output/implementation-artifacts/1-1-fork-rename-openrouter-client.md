@@ -1,6 +1,6 @@
 # Story 1.1: Fork, Rename & OpenRouter Client
 
-Status: review
+Status: done
 
 ## Story
 
@@ -343,6 +343,7 @@ N/A — clean execution, no HALTs triggered.
 
 ### Change Log
 - 2026-03-20: Story 1.1 implemented — fork, rename, OpenRouter client, exception hierarchy, async tools, tests
+- 2026-03-20: Code review fixes (P1-P14, P20, P25) — format string injection guard, ValidationError crash fix, show_knowledge_summary returns Pydantic, config path fix, broad Exception→AiCouncilError, silent YAML catch fix, greedy regex fix, backoff cap, stale gitignore/docstring cleanup
 
 ### File List
 - `pyproject.toml` (new)
@@ -368,8 +369,9 @@ N/A — clean execution, no HALTs triggered.
 - `src/aicouncil/prompts/__init__.py` (modified — imports)
 - `src/aicouncil/prompts/base.py` (copied, no changes needed)
 - `src/aicouncil/prompts/workflows.py` (copied, no changes needed)
-- `tests/__init__.py` (copied)
+- `tests/__init__.py` (modified — docstring rename)
 - `tests/test_schemas.py` (modified — imports)
 - `tests/test_exceptions.py` (new — 8 tests)
 - `tests/test_client.py` (new — 17 tests)
 - `uv.lock` (generated)
+- `.gitignore` (modified — stale entries fixed)
