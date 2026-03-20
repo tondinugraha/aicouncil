@@ -1016,7 +1016,10 @@ async def show_knowledge_summary() -> MemoryResult:
 
 def main() -> None:
     """Run the AI Council server."""
+    from aicouncil.scaffold import ensure_scaffold
+
     logger.info("Starting AI Council Server...")
+    ensure_scaffold()
     mcp.run(transport="stdio")
 
 

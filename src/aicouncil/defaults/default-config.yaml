@@ -1,0 +1,67 @@
+# aicouncil default configuration
+# Auto-created on first run. Customize as needed.
+# API keys belong in .mcp.json env vars — NOT here.
+
+# Global default model — used when no per-tool or per-invocation override is set
+default_model: "anthropic/claude-sonnet-4"
+
+# Per-tool model overrides — override global default for specific tools
+# Uncomment and set to override:
+tool_overrides:
+  # critique: "openai/gpt-4.1"
+  # brainstorm: "anthropic/claude-sonnet-4"
+  # research_assist: "google/gemini-2.5-pro"
+
+# Council model pool — models available for council agent assignment
+# The council assembler picks from this pool using capability-weighted routing
+model_pool:
+  - "anthropic/claude-sonnet-4"
+  - "openai/gpt-4.1"
+  - "google/gemini-2.5-pro"
+  - "deepseek/deepseek-r1"
+  - "meta-llama/llama-4-maverick"
+
+# Capability weights — model-centric format
+# Top-level keys = model names, values = domain scores (0.0-1.0) + context_window
+# Used by council assembler for capability-weighted random routing (60/40 bias)
+capability_weights:
+  "anthropic/claude-sonnet-4":
+    context_window: 200000
+    coding: 0.95
+    analysis: 0.90
+    creative: 0.85
+    business: 0.80
+    legal: 0.70
+    finance: 0.75
+  "openai/gpt-4.1":
+    context_window: 1048576
+    coding: 0.90
+    analysis: 0.90
+    creative: 0.85
+    business: 0.85
+    legal: 0.75
+    finance: 0.80
+  "google/gemini-2.5-pro":
+    context_window: 1048576
+    coding: 0.90
+    analysis: 0.85
+    creative: 0.80
+    business: 0.80
+    legal: 0.70
+    finance: 0.75
+  "deepseek/deepseek-r1":
+    context_window: 163840
+    coding: 0.90
+    analysis: 0.90
+    creative: 0.70
+    business: 0.65
+    legal: 0.60
+    finance: 0.70
+  "meta-llama/llama-4-maverick":
+    context_window: 1048576
+    coding: 0.80
+    analysis: 0.75
+    creative: 0.80
+    business: 0.70
+    legal: 0.60
+    finance: 0.65
