@@ -10,7 +10,7 @@ from typing import Any, TypeVar
 import httpx
 from pydantic import BaseModel
 
-from aicouncil.config import ModelCategory, get_config, get_model_config
+from aicouncil.config import get_config
 from aicouncil.exceptions import ConfigError, ModelUnavailableError, OpenRouterError
 
 logger = logging.getLogger(__name__)
@@ -293,33 +293,3 @@ class OpenRouterClient:
                 return error_data
 
         return error_data
-
-
-# Client cache by model category
-_clients: dict[str, OpenRouterClient] = {}
-
-
-def get_client(category: ModelCategory = "default") -> OpenRouterClient:
-    """Get an OpenRouter client for the specified task category.
-
-    Args:
-        category: Task category - "fast", "default", or "reasoning"
-
-    Returns:
-        OpenRouterClient configured with the appropriate model.
-    """
-    global _clients
-
-    if category not in _clients:
-        model_config = get_model_config()
-        model = model_config.get_model(category)
-        _clients[category] = OpenRouterClient(model=model)
-        logger.info(f"Created OpenRouterClient for category '{category}' using model: {model}")
-
-    return _clients[category]
-
-
-def clear_client_cache() -> None:
-    """Clear the client cache (useful for testing or config reload)."""
-    global _clients
-    _clients = {}

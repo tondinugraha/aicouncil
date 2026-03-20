@@ -1,10 +1,50 @@
-"""MCP Tools for AI Council tools."""
+"""MCP Tools for AI Council — prompt builders and shared helpers."""
 
-# Tools are registered via decorators in server.py
-# This module provides helper functions used by the tools
+import logging
+from pathlib import Path
 
 from aicouncil.prompts.base import BasePrompts
 from aicouncil.prompts.workflows import WorkflowPrompts
+
+logger = logging.getLogger(__name__)
+
+
+def get_project_root() -> Path:
+    """Get the project root directory."""
+    from aicouncil.scanner import ProjectDetector
+
+    detector = ProjectDetector()
+    info = detector.detect()
+    return Path(info.root)
+
+
+def get_knowledge_context(
+    file_paths: list[str] | None = None,
+    tags: list[str] | None = None,
+    context_type: str = "general",
+) -> str:
+    """Get relevant knowledge for prompt context."""
+    try:
+        from aicouncil.memory import KnowledgeRetriever
+
+        retriever = KnowledgeRetriever()
+
+        if context_type == "architecture":
+            entries = retriever.get_context_for_architecture()
+        elif context_type == "code":
+            entries = retriever.get_context_for_code()
+        elif context_type == "scan":
+            entries = retriever.get_context_for_scan(file_paths=file_paths)
+        else:
+            entries = retriever.store.get_for_context(file_paths=file_paths, tags=tags)
+
+        return retriever.format_for_prompt(entries)
+    except (ImportError, FileNotFoundError) as e:
+        logger.warning(f"Knowledge context unavailable: {e}")
+        return ""
+    except Exception as e:
+        logger.warning(f"Failed to load knowledge context: {e}")
+        return ""
 
 
 def _escape_braces(text: str) -> str:

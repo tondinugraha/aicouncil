@@ -46,7 +46,7 @@ development_status:
   epic-1: in-progress
   1-1-fork-rename-openrouter-client: done
   1-2-config-system-auto-scaffold: done
-  1-3-extended-tools-migration: backlog
+  1-3-extended-tools-migration: review
   1-4-agent-system-loader: backlog
   1-5-agent-roster-authoring: backlog
   epic-1-retrospective: optional

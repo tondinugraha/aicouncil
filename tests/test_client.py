@@ -6,7 +6,7 @@ import httpx
 import pytest
 from pydantic import BaseModel, Field
 
-from aicouncil.client import OpenRouterClient, clear_client_cache
+from aicouncil.client import OpenRouterClient
 from aicouncil.exceptions import ConfigError, ModelUnavailableError
 
 
@@ -318,16 +318,6 @@ class TestGenerateWithFile:
         result = await client.generate_with_file(str(test_file), "analyze this")
         assert result == "analyzed"
         await client.close()
-
-
-class TestClientFactory:
-    """Test get_client() factory function."""
-
-    def test_get_client_returns_open_router_client(self):
-        """Test that get_client returns an OpenRouterClient."""
-        clear_client_cache()
-        # We can't fully test without env vars, but we can test the cache clearing
-        clear_client_cache()
 
 
 class TestBuildMessages:
