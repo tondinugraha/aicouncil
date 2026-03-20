@@ -4,11 +4,13 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from pydantic import ValidationError
+
 from aicouncil.client import OpenRouterClient
 from aicouncil.config import get_config
 from aicouncil.exceptions import AiCouncilError
 from aicouncil.schemas.responses import DocumentResearchResult, ResearchResult
-from aicouncil.tools import build_document_research_prompt, build_research_prompt
+from aicouncil.tools import build_document_research_prompt, build_research_prompt, get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,15 @@ async def research_assist(
     Research any topic with configurable depth (quick/thorough/exhaustive).
     Returns findings, knowledge gaps, and next steps.
     """
+    if not query or not query.strip():
+        return ResearchResult(
+            findings=[],
+            summary="No query provided for research",
+            knowledge_gaps=[],
+            next_steps=["Provide a research query"],
+            confidence_overall="low",
+        )
+
     logger.info(f"Research assistance requested ({depth}): {query[:50]}...")
 
     try:
@@ -30,9 +41,8 @@ async def research_assist(
 
         config = get_config()
         resolved_model = config.resolve_model("research_assist", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(prompt, response_model=ResearchResult, context=context)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(prompt, response_model=ResearchResult, context=context)
 
         if isinstance(result, ResearchResult):
             logger.info(f"Research complete: {len(result.findings)} findings")
@@ -54,7 +64,7 @@ async def research_assist(
             next_steps=[],
             confidence_overall="low",
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"research_assist unexpected error: {e}")
         return ResearchResult(
             findings=[],
@@ -92,6 +102,20 @@ async def research_document(
                 output_file_path=None,
             )
 
+        # P-5: Validate output_path is within the project directory
+        project_root = get_project_root()
+        output_file = Path(output_path).resolve()
+        if not str(output_file).startswith(str(project_root.resolve())):
+            return DocumentResearchResult(
+                document_title="Error",
+                document_type="unknown",
+                executive_summary=(
+                    f"Output path must be within the project directory: {project_root}"
+                ),
+                key_insights=[],
+                output_file_path=None,
+            )
+
         prompt = build_document_research_prompt(
             focus_areas=focus_areas,
             research_depth=research_depth,
@@ -100,21 +124,19 @@ async def research_document(
 
         config = get_config()
         resolved_model = config.resolve_model("research_document", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate_with_file(
-            file_path=str(doc_path.absolute()),
-            prompt=prompt,
-            response_model=DocumentResearchResult,
-        )
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate_with_file(
+                file_path=str(doc_path.absolute()),
+                prompt=prompt,
+                response_model=DocumentResearchResult,
+            )
 
         if isinstance(result, DocumentResearchResult):
             markdown_content = _format_document_research(result, document_path)
 
-            output_file = Path(output_path)
             output_file.parent.mkdir(parents=True, exist_ok=True)
             output_file.write_text(markdown_content, encoding="utf-8")
-            result.output_file_path = str(output_path)
+            result.output_file_path = str(output_file)
 
             if save_to_knowledge:
                 from aicouncil.memory import KnowledgeLearner
@@ -132,7 +154,7 @@ async def research_document(
                         learned_ids.append(entry_id)
                 result.knowledge_learned = learned_ids
 
-            logger.info(f"Document research complete: saved to {output_path}")
+            logger.info(f"Document research complete: saved to {output_file}")
             return result
 
         return DocumentResearchResult(
@@ -152,8 +174,8 @@ async def research_document(
             key_insights=[],
             output_file_path=None,
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in research_document: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError, OSError) as e:
+        logger.error(f"Unexpected error in research_document: {e}")
         return DocumentResearchResult(
             document_title="Error",
             document_type="unknown",

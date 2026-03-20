@@ -3,6 +3,8 @@
 import logging
 from typing import Literal
 
+from pydantic import ValidationError
+
 from aicouncil.exceptions import AiCouncilError
 from aicouncil.schemas.responses import MemoryResult, RecallResult
 
@@ -21,6 +23,12 @@ async def remember(
     Save knowledge to project memory.
     Types: pattern, architecture, relation, issue, convention, insight.
     """
+    if not content or not content.strip():
+        return MemoryResult(
+            success=False,
+            message="No content provided to remember",
+        )
+
     logger.info(f"Saving knowledge: {knowledge_type}")
 
     try:
@@ -46,8 +54,8 @@ async def remember(
             success=False,
             message=f"Failed to save: {e}",
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in remember: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError, OSError) as e:
+        logger.error(f"Unexpected error in remember: {e}")
         return MemoryResult(
             success=False,
             message=f"Unexpected error: {e}",
@@ -63,6 +71,14 @@ async def recall(
     """
     Search project memory by query. Optional filter by knowledge_type.
     """
+    if not query or not query.strip():
+        return RecallResult(
+            query=query,
+            total_found=0,
+            entries=[],
+            context_snippet="No query provided for recall",
+        )
+
     logger.info(f"Recalling knowledge: {query}")
 
     try:
@@ -71,10 +87,13 @@ async def recall(
         store = KnowledgeStore()
         retriever = KnowledgeRetriever()
 
-        entries = store.search(query, limit=limit)
-
         if knowledge_type:
-            entries = [e for e in entries if e.type == knowledge_type]
+            # Fetch more results before filtering to ensure we get enough matches
+            fetch_limit = limit * 5
+            entries = store.search(query, limit=fetch_limit)
+            entries = [e for e in entries if e.type == knowledge_type][:limit]
+        else:
+            entries = store.search(query, limit=limit)
 
         return RecallResult(
             query=query,
@@ -91,8 +110,8 @@ async def recall(
             entries=[],
             context_snippet=f"Recall failed: {e}",
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in recall: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
+        logger.error(f"Unexpected error in recall: {e}")
         return RecallResult(
             query=query,
             total_found=0,
@@ -134,8 +153,8 @@ async def forget(
             success=False,
             message=f"Delete failed: {e}",
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in forget: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError, OSError) as e:
+        logger.error(f"Unexpected error in forget: {e}")
         return MemoryResult(
             success=False,
             message=f"Unexpected error: {e}",
@@ -164,6 +183,6 @@ async def show_knowledge_summary() -> MemoryResult:
     except AiCouncilError as e:
         logger.error(f"Failed to get knowledge summary: {e}")
         return MemoryResult(success=False, message=f"Failed to load knowledge summary: {e}")
-    except Exception as e:
-        logger.exception(f"Unexpected error in show_knowledge_summary: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError, OSError) as e:
+        logger.error(f"Unexpected error in show_knowledge_summary: {e}")
         return MemoryResult(success=False, message=f"Unexpected error: {e}")

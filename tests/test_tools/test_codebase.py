@@ -160,7 +160,7 @@ class TestAnalyzeDependencies:
 
     @pytest.mark.asyncio
     async def test_analyze_dependencies_error(self):
-        with patch(PROJECT_DETECTOR, side_effect=RuntimeError("no project")):
+        with patch(PROJECT_DETECTOR, side_effect=TypeError("no project")):
             result = await analyze_dependencies()
         assert isinstance(result, DependencyAnalysisResult)
         assert result.total_modules == 0

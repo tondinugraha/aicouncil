@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from pydantic import ValidationError
+
 from aicouncil.client import OpenRouterClient
 from aicouncil.config import get_config
 from aicouncil.exceptions import AiCouncilError
@@ -44,9 +46,16 @@ async def scan_codebase(
             max_files=max_files,
         )
 
+        all_files = getattr(project_context, "all_files", [])
+        total_files = getattr(project_context, "total_files", 0)
+        total_lines = getattr(project_context, "total_lines", 0)
+        languages = getattr(project_context, "languages", {})
+        dependencies = getattr(project_context, "dependencies", [])
+        key_files = getattr(project_context, "key_files", [])
+
         knowledge_context = get_knowledge_context(
             context_type="scan",
-            file_paths=project_context.all_files[:20],
+            file_paths=all_files[:20],
         )
 
         prompt = f"""Analyze this codebase and provide a comprehensive review.
@@ -55,15 +64,15 @@ async def scan_codebase(
 - Name: {project_context.project.name}
 - Type: {project_context.project.type}
 - Framework: {project_context.project.framework or "None detected"}
-- Total Files: {project_context.total_files}
-- Total Lines: {project_context.total_lines}
-- Languages: {project_context.languages}
+- Total Files: {total_files}
+- Total Lines: {total_lines}
+- Languages: {languages}
 
 ## Key Files
-{chr(10).join(f"- {f.path}: {f.summary}" for f in project_context.key_files[:15])}
+{chr(10).join(f"- {f.path}: {f.summary}" for f in key_files[:15])}
 
 ## Dependencies
-{", ".join(project_context.dependencies[:20]) or "None detected"}
+{", ".join(dependencies[:20]) or "None detected"}
 
 {knowledge_context}
 
@@ -72,7 +81,7 @@ async def scan_codebase(
             chr(10).join(
                 f"### {f.path}{chr(10)}```{chr(10)}"
                 f"{f.content[:2000] if f.content else 'No content'}{chr(10)}```"
-                for f in project_context.key_files[:10]
+                for f in key_files[:10]
                 if f.content
             )
         }
@@ -86,8 +95,8 @@ Provide:
 
         config = get_config()
         resolved_model = config.resolve_model("scan_codebase", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-        result = await client.generate(prompt, response_model=CodebaseScanResult)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(prompt, response_model=CodebaseScanResult)
 
         if isinstance(result, CodebaseScanResult):
             learner = KnowledgeLearner()
@@ -99,11 +108,11 @@ Provide:
             project_name=project_context.project.name,
             project_type=project_context.project.type,
             framework=project_context.project.framework,
-            total_files=project_context.total_files,
-            total_lines=project_context.total_lines,
-            languages=project_context.languages,
+            total_files=total_files,
+            total_lines=total_lines,
+            languages=languages,
             architecture_summary="Scan completed with parsing issues",
-            dependencies=project_context.dependencies,
+            dependencies=dependencies,
         )
 
     except AiCouncilError as e:
@@ -115,8 +124,8 @@ Provide:
             total_lines=0,
             architecture_summary=f"Scan failed: {e}",
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in scan_codebase: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
+        logger.error(f"Unexpected error in scan_codebase: {e}")
         return CodebaseScanResult(
             project_name="Unknown",
             project_type="unknown",
@@ -184,8 +193,8 @@ Provide:
 
         config = get_config()
         resolved_model = config.resolve_model("critique_file", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-        result = await client.generate(prompt, response_model=FileAnalysisResult)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(prompt, response_model=FileAnalysisResult)
 
         if isinstance(result, FileAnalysisResult):
             result.file_path = file_path
@@ -217,8 +226,8 @@ Provide:
             file_path=file_path,
             file_summary=f"Analysis failed: {e}",
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in critique_file: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
+        logger.error(f"Unexpected error in critique_file: {e}")
         return FileAnalysisResult(
             file_path=file_path,
             file_summary=f"Unexpected error: {e}",
@@ -243,12 +252,18 @@ async def analyze_dependencies(
         walker = FileWalker(root)
         analyzer = CodeAnalyzer(root)
 
-        internal_modules = []
         external_deps: set[str] = set()
+        # Map file_path -> list of imported module names (local only)
         import_map: dict[str, list[str]] = {}
+        # Map module_name -> file_path for reverse lookups
+        module_to_file: dict[str, str] = {}
 
         for file_info in walker.get_code_files()[:100]:
             structure = analyzer.analyze_file(root / file_info.path)
+
+            # Derive a module name from the file path for consistent lookups
+            module_name = file_info.path.replace("/", ".").replace("\\", ".").removesuffix(".py")
+            module_to_file[module_name] = file_info.path
 
             local_imports = []
             for imp in structure.imports:
@@ -259,13 +274,18 @@ async def analyze_dependencies(
 
             import_map[file_info.path] = local_imports
 
+        # Build reverse lookup: module_name -> list of file_paths that import it
         imported_by_map: dict[str, list[str]] = {}
         for fp, imports in import_map.items():
             for imp in imports:
-                if imp not in imported_by_map:
-                    imported_by_map[imp] = []
-                imported_by_map[imp].append(fp)
+                # Resolve module name to file path for consistent keying
+                imp_file = module_to_file.get(imp)
+                if imp_file:
+                    if imp_file not in imported_by_map:
+                        imported_by_map[imp_file] = []
+                    imported_by_map[imp_file].append(fp)
 
+        internal_modules = []
         for fp, imports in import_map.items():
             internal_modules.append(
                 DependencyNode(
@@ -281,13 +301,8 @@ async def analyze_dependencies(
             m.path for m in internal_modules if len(m.imports) == 0 and len(m.imported_by) == 0
         ]
 
-        circular: list[list[str]] = []
-        for fp, imports in import_map.items():
-            for imp in imports:
-                if imp in import_map and fp in import_map.get(imp, []):
-                    pair = sorted([fp, imp])
-                    if pair not in circular:
-                        circular.append(pair)
+        # Detect circular dependencies using DFS (handles transitive cycles)
+        circular = _find_circular_dependencies(import_map, module_to_file)
 
         return DependencyAnalysisResult(
             total_modules=len(internal_modules),
@@ -321,9 +336,54 @@ async def analyze_dependencies(
             total_modules=0,
             recommendations=[f"Analysis failed: {e}"],
         )
-    except Exception as e:
-        logger.exception(f"Unexpected error in analyze_dependencies: {e}")
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
+        logger.error(f"Unexpected error in analyze_dependencies: {e}")
         return DependencyAnalysisResult(
             total_modules=0,
             recommendations=[f"Unexpected error: {e}"],
         )
+
+
+def _find_circular_dependencies(
+    import_map: dict[str, list[str]],
+    module_to_file: dict[str, str],
+) -> list[list[str]]:
+    """Detect circular dependencies using DFS, supporting transitive cycles."""
+    # Build adjacency graph using file paths
+    graph: dict[str, list[str]] = {}
+    for fp, imports in import_map.items():
+        resolved = []
+        for imp in imports:
+            imp_file = module_to_file.get(imp)
+            if imp_file and imp_file in import_map:
+                resolved.append(imp_file)
+        graph[fp] = resolved
+
+    cycles: list[list[str]] = []
+    visited: set[str] = set()
+    rec_stack: set[str] = set()
+    path: list[str] = []
+
+    def dfs(node: str) -> None:
+        visited.add(node)
+        rec_stack.add(node)
+        path.append(node)
+
+        for neighbor in graph.get(node, []):
+            if neighbor not in visited:
+                dfs(neighbor)
+            elif neighbor in rec_stack:
+                # Found a cycle — extract it from the path
+                cycle_start = path.index(neighbor)
+                cycle = sorted(path[cycle_start:])
+                if cycle not in cycles:
+                    cycles.append(cycle)
+
+        path.pop()
+        rec_stack.discard(node)
+
+    for node in graph:
+        if node not in visited:
+            dfs(node)
+
+    return cycles

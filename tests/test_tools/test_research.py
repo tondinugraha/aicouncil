@@ -1,5 +1,6 @@
 """Tests for research tool functions."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -17,6 +18,7 @@ def _patch_research(mock_config, mock_client):
     with (
         patch(f"{MODULE}.get_config", return_value=mock_config),
         patch(f"{MODULE}.OpenRouterClient", return_value=mock_client) as client_cls,
+        patch(f"{MODULE}.get_project_root", return_value=Path("/")),
     ):
         client_cls.return_value = mock_client
         yield client_cls

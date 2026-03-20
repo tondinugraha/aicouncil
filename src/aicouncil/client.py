@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from aicouncil.config import get_config
 from aicouncil.exceptions import ConfigError, ModelUnavailableError, OpenRouterError
@@ -59,6 +59,14 @@ class OpenRouterClient:
         if self._http_client and not self._http_client.is_closed:
             await self._http_client.aclose()
             self._http_client = None
+
+    async def __aenter__(self) -> "OpenRouterClient":
+        """Enter async context manager."""
+        return self
+
+    async def __aexit__(self, exc_type: type | None, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context manager, closing HTTP client."""
+        await self.close()
 
     async def generate(
         self,
@@ -240,7 +248,7 @@ class OpenRouterClient:
 
         try:
             return response_model.model_validate(data)
-        except Exception as e:
+        except ValidationError as e:
             logger.warning(f"Response validation failed: {e}")
             return self._error_response(f"Response validation failed: {e}", response_model)
 
@@ -252,7 +260,7 @@ class OpenRouterClient:
         if code_block_match:
             return code_block_match.group(1).strip()
 
-        json_match = re.search(r"(\{[\s\S]*?\}|\[[\s\S]*?\])", text)
+        json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
         if json_match:
             return json_match.group(1).strip()
 
@@ -275,21 +283,53 @@ class OpenRouterClient:
                 minimal_data: dict[str, Any] = {}
                 for field_name, field_info in schema.get("properties", {}).items():
                     if field_name in schema.get("required", []):
-                        field_type = field_info.get("type", "string")
-                        if field_type == "string":
-                            minimal_data[field_name] = f"Error: {error_msg}"
-                        elif field_type == "array":
-                            minimal_data[field_name] = []
-                        elif field_type == "boolean":
-                            minimal_data[field_name] = False
-                        elif field_type == "number":
-                            minimal_data[field_name] = 0.0
-                        elif field_type == "integer":
-                            minimal_data[field_name] = 0
-                        else:
-                            minimal_data[field_name] = None
+                        minimal_data[field_name] = self._default_for_field(
+                            field_info, error_msg, schema.get("$defs", {})
+                        )
                 return response_model.model_validate(minimal_data)
-            except Exception:
+            except (ValidationError, KeyError, TypeError) as e:
+                logger.warning(f"Failed to construct error response model: {e}")
                 return error_data
 
         return error_data
+
+    def _default_for_field(
+        self,
+        field_info: dict[str, Any],
+        error_msg: str,
+        defs: dict[str, Any],
+    ) -> Any:
+        """Determine a safe default value for a schema field."""
+        # Literal/enum fields — pick the first allowed value
+        if "enum" in field_info:
+            return field_info["enum"][0]
+
+        # anyOf (Optional, Union) — pick first non-null variant
+        if "anyOf" in field_info:
+            for variant in field_info["anyOf"]:
+                if variant.get("type") == "null":
+                    continue
+                return self._default_for_field(variant, error_msg, defs)
+            return None
+
+        # $ref — resolve from $defs
+        if "$ref" in field_info:
+            ref_name = field_info["$ref"].rsplit("/", 1)[-1]
+            if ref_name in defs:
+                return self._default_for_field(defs[ref_name], error_msg, defs)
+            return None
+
+        field_type = field_info.get("type", "string")
+        if field_type == "string":
+            return f"Error: {error_msg}"
+        elif field_type == "array":
+            return []
+        elif field_type == "object":
+            return {}
+        elif field_type == "boolean":
+            return False
+        elif field_type == "number":
+            return 0.0
+        elif field_type == "integer":
+            return 0
+        return None

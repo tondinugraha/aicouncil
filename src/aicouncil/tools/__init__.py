@@ -42,7 +42,7 @@ def get_knowledge_context(
     except (ImportError, FileNotFoundError) as e:
         logger.warning(f"Knowledge context unavailable: {e}")
         return ""
-    except Exception as e:
+    except (TypeError, KeyError, ValueError, AttributeError, OSError) as e:
         logger.warning(f"Failed to load knowledge context: {e}")
         return ""
 

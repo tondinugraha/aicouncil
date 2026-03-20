@@ -30,4 +30,8 @@ def mock_client():
     client = MagicMock()
     client.generate = AsyncMock()
     client.generate_with_file = AsyncMock()
+    client.close = AsyncMock()
+    # Support async context manager (async with OpenRouterClient(...) as client)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=False)
     return client

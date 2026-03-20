@@ -88,7 +88,7 @@ class TestCritique:
 
     @pytest.mark.asyncio
     async def test_critique_unexpected_error(self, _patch_analysis, mock_client):
-        mock_client.generate.side_effect = RuntimeError("boom")
+        mock_client.generate.side_effect = TypeError("boom")
         result = await critique("content")
         assert isinstance(result, CritiqueResult)
         assert result.confidence == 0.0

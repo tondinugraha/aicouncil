@@ -3,6 +3,8 @@
 import logging
 from typing import Literal
 
+from pydantic import ValidationError
+
 from aicouncil.client import OpenRouterClient
 from aicouncil.config import get_config
 from aicouncil.exceptions import AiCouncilError
@@ -42,6 +44,15 @@ async def critique(
     """
     logger.info(f"Critique requested for {content_type} content")
 
+    if not content or not content.strip():
+        return CritiqueResult(
+            verdict="needs_revision",
+            summary="No content provided to critique",
+            issues=[],
+            strengths=[],
+            confidence=0.0,
+        )
+
     try:
         knowledge_context = ""
         if content_type in ["code", "architecture"]:
@@ -53,9 +64,10 @@ async def critique(
 
         config = get_config()
         resolved_model = config.resolve_model("critique", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(prompt, response_model=CritiqueResult, context=full_context)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(
+                prompt, response_model=CritiqueResult, context=full_context
+            )
 
         if isinstance(result, CritiqueResult):
             logger.info(f"Critique complete: {result.verdict} with {len(result.issues)} issues")
@@ -76,7 +88,7 @@ async def critique(
             strengths=[],
             confidence=0.0,
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"critique unexpected error: {e}")
         return CritiqueResult(
             verdict="needs_revision",
@@ -101,6 +113,13 @@ async def brainstorm(
     """
     logger.info(f"Brainstorming requested: {topic}")
 
+    if not topic or not topic.strip():
+        return BrainstormResult(
+            ideas=[],
+            synthesis="No topic provided for brainstorming",
+            recommended=None,
+        )
+
     try:
         num_ideas = max(3, min(10, num_ideas))
 
@@ -115,11 +134,10 @@ async def brainstorm(
 
         config = get_config()
         resolved_model = config.resolve_model("brainstorm", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(
-            prompt, response_model=BrainstormResult, context=full_context
-        )
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(
+                prompt, response_model=BrainstormResult, context=full_context
+            )
 
         if isinstance(result, BrainstormResult):
             logger.info(f"Brainstorm complete: {len(result.ideas)} ideas generated")
@@ -137,7 +155,7 @@ async def brainstorm(
             synthesis=f"Brainstorming failed: {e}",
             recommended=None,
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"brainstorm unexpected error: {e}")
         return BrainstormResult(
             ideas=[],
@@ -160,16 +178,25 @@ async def validate(
     """
     logger.info(f"Validation requested: {validation_type}")
 
+    if not content or not content.strip():
+        return ValidationResult(
+            is_valid=False,
+            score=0.0,
+            passed_checks=[],
+            failed_checks=["No content provided to validate"],
+            warnings=[],
+            suggestions=[],
+        )
+
     try:
         prompt = build_validate_prompt(content, validation_type, reference_context)
 
         config = get_config()
         resolved_model = config.resolve_model("validate", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(
-            prompt, response_model=ValidationResult, context=reference_context
-        )
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(
+                prompt, response_model=ValidationResult, context=reference_context
+            )
 
         if isinstance(result, ValidationResult):
             logger.info(
@@ -195,7 +222,7 @@ async def validate(
             warnings=[],
             suggestions=[],
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"validate unexpected error: {e}")
         return ValidationResult(
             is_valid=False,
@@ -232,9 +259,8 @@ async def challenge_assumptions(
 
         config = get_config()
         resolved_model = config.resolve_model("challenge_assumptions", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(prompt, response_model=ChallengeResult, context=context)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(prompt, response_model=ChallengeResult, context=context)
 
         if isinstance(result, ChallengeResult):
             logger.info(
@@ -257,7 +283,7 @@ async def challenge_assumptions(
             summary=f"Challenge failed: {e}",
             recommendation="Retry after resolving the error",
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"challenge_assumptions unexpected error: {e}")
         return ChallengeResult(
             challenged=[],
@@ -289,6 +315,14 @@ async def find_gaps(
     """
     logger.info(f"Gap analysis requested for {content_type}")
 
+    if not content or not content.strip():
+        return GapsResult(
+            gaps=[],
+            coverage_score=0.0,
+            well_covered=[],
+            summary="No content provided for gap analysis",
+        )
+
     try:
         knowledge_context = ""
         if content_type in ["code", "architecture"]:
@@ -300,9 +334,8 @@ async def find_gaps(
 
         config = get_config()
         resolved_model = config.resolve_model("find_gaps", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(prompt, response_model=GapsResult)
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(prompt, response_model=GapsResult)
 
         if isinstance(result, GapsResult):
             logger.info(
@@ -325,7 +358,7 @@ async def find_gaps(
             well_covered=[],
             summary=f"Gap analysis failed: {e}",
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"find_gaps unexpected error: {e}")
         return GapsResult(
             gaps=[],
@@ -348,6 +381,14 @@ async def propose_alternatives(
     """
     logger.info("Generating alternative approaches")
 
+    if not current_approach or not current_approach.strip():
+        return AlternativesResult(
+            current_approach_assessment="Unable to assess",
+            alternatives=[],
+            comparison_matrix={},
+            recommendation="No current approach provided to generate alternatives for",
+        )
+
     try:
         num_alternatives = max(2, min(5, num_alternatives))
         constraints = constraints or []
@@ -365,11 +406,10 @@ async def propose_alternatives(
 
         config = get_config()
         resolved_model = config.resolve_model("propose_alternatives", per_invocation=model)
-        client = OpenRouterClient(model=resolved_model, config=config)
-
-        result = await client.generate(
-            prompt, response_model=AlternativesResult, context=full_context
-        )
+        async with OpenRouterClient(model=resolved_model, config=config) as client:
+            result = await client.generate(
+                prompt, response_model=AlternativesResult, context=full_context
+            )
 
         if isinstance(result, AlternativesResult):
             logger.info(f"Generated {len(result.alternatives)} alternatives")
@@ -389,7 +429,7 @@ async def propose_alternatives(
             comparison_matrix={},
             recommendation=f"Alternative generation failed: {e}",
         )
-    except Exception as e:
+    except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error(f"propose_alternatives unexpected error: {e}")
         return AlternativesResult(
             current_approach_assessment="Unable to assess",
