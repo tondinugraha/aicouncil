@@ -3,7 +3,7 @@ name: "Security Engineer"
 role: "Application Security Engineer"
 type: "expert"
 tier: 2
-domains: ["security", "authentication", "compliance"]
+domains: ["security", "authentication", "security_compliance"]
 include_flag: true
 ---
 

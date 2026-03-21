@@ -1,6 +1,6 @@
 # Story 1.5: Agent Roster Authoring
 
-Status: review
+Status: done
 
 ## Story
 
@@ -422,11 +422,28 @@ Claude Opus 4.6 (1M context)
 - Existing 5 seed agents verified as high quality — no expansion needed
 - CSV manifest updated from 5 rows to 40 rows
 - include_flag: true for 5 broadly useful user agents, false for 3 niche perspectives
-- 204 tests pass with zero regressions
+- 205 tests pass with zero regressions
 - Zero lint errors
+
+### Code Review Fixes (Post-Review)
+- **Domain slug deduplication:** Resolved 7 domain routing collisions across agent files and CSV manifest:
+  - `compliance` disambiguated: compliance-officer owns `compliance`, security-engineer → `security_compliance`, tax-advisor → `tax_compliance`
+  - `databases` disambiguated: database-engineer owns `databases`, backend-developer → `data_persistence`
+  - `frontend`/`backend` removed from fullstack-developer → `cross_stack`/`rapid_prototyping`
+  - `onboarding` disambiguated: customer-success → `customer_onboarding`, junior-developer → `developer_onboarding`
+  - `statistics` disambiguated: statistician owns `statistics`, data-scientist → `predictive_modeling`
+  - compliance-officer: removed redundant `regulatory_compliance` → `policy_implementation`
+- **Agent naming:** `customer-success.md` name changed from "Customer Success" to "Customer Success Manager"
+- **Trailing newlines:** Added to all 35 new agent files for consistency with seed agents
+- **Test hardening:** Added `test_include_flag_false_agents_excluded` integration test; expanded spot-checks from 5 to 11 agents across all categories; added tier spot-checks for new agents
+
+### Known Spec Issues (Not Addressed — Require Decision)
+- **IG-1:** Consumer placed at Tier 1 alongside Entrepreneur — spec says "2 Tier 1 users" but doesn't name which 2. Numeric totals are consistent. Confirm intentional or reassign.
+- **BS-1:** DevOps Engineer, QA Engineer, and Frontend Developer classified as `expert` (per spec) despite being practitioner roles. All other engineer/developer agents are `builder`. Spec needs a taxonomy rule for the expert/builder boundary.
 
 ### Change Log
 - 2026-03-21: Authored full agent roster (35 new agents + CSV manifest update). Updated 4 test assertions for expanded roster counts.
+- 2026-03-21: Code review fixes — domain slug deduplication (8 agent files + CSV), agent naming fix, trailing newlines (35 files), test hardening (1 new test, expanded spot-checks). 205 tests pass.
 
 ### File List
 - `src/aicouncil/agents/devops-engineer.md` (new)
@@ -438,32 +455,35 @@ Claude Opus 4.6 (1M context)
 - `src/aicouncil/agents/qa-engineer.md` (new)
 - `src/aicouncil/agents/hr-specialist.md` (new)
 - `src/aicouncil/agents/frontend-developer.md` (new)
-- `src/aicouncil/agents/data-scientist.md` (new)
+- `src/aicouncil/agents/data-scientist.md` (modified — domain fix)
 - `src/aicouncil/agents/ux-designer.md` (new)
 - `src/aicouncil/agents/financial-advisor.md` (new)
 - `src/aicouncil/agents/marketing-strategist.md` (new)
 - `src/aicouncil/agents/accountant.md` (new)
 - `src/aicouncil/agents/growth-hacker.md` (new)
 - `src/aicouncil/agents/pricing-strategist.md` (new)
-- `src/aicouncil/agents/customer-success.md` (new)
+- `src/aicouncil/agents/customer-success.md` (modified — name + domain fix)
 - `src/aicouncil/agents/technical-writer.md` (new)
-- `src/aicouncil/agents/compliance-officer.md` (new)
+- `src/aicouncil/agents/compliance-officer.md` (modified — domain fix)
 - `src/aicouncil/agents/statistician.md` (new)
 - `src/aicouncil/agents/economist.md` (new)
 - `src/aicouncil/agents/psychologist.md` (new)
 - `src/aicouncil/agents/medical-professional.md` (new)
 - `src/aicouncil/agents/educator.md` (new)
 - `src/aicouncil/agents/actuary.md` (new)
-- `src/aicouncil/agents/fullstack-developer.md` (new)
+- `src/aicouncil/agents/fullstack-developer.md` (modified — domain fix)
 - `src/aicouncil/agents/mobile-developer.md` (new)
 - `src/aicouncil/agents/database-engineer.md` (new)
 - `src/aicouncil/agents/employee.md` (new)
 - `src/aicouncil/agents/student.md` (new)
 - `src/aicouncil/agents/consumer.md` (new)
 - `src/aicouncil/agents/executive.md` (new)
-- `src/aicouncil/agents/junior-developer.md` (new)
+- `src/aicouncil/agents/junior-developer.md` (modified — domain fix)
 - `src/aicouncil/agents/freelancer.md` (new)
 - `src/aicouncil/agents/parent.md` (new)
-- `src/aicouncil/agents/agent-manifest.csv` (modified)
-- `tests/test_agent_loader.py` (modified)
+- `src/aicouncil/agents/agent-manifest.csv` (modified — domain fixes)
+- `src/aicouncil/agents/security-engineer.md` (modified — domain fix)
+- `src/aicouncil/agents/tax-advisor.md` (modified — domain fix)
+- `src/aicouncil/agents/backend-developer.md` (modified — domain fix)
+- `tests/test_agent_loader.py` (modified — new test + expanded spot-checks)
 - `_bmad-output/implementation-artifacts/1-5-agent-roster-authoring.md` (modified)

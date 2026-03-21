@@ -3,7 +3,7 @@ name: "Compliance Officer"
 role: "Chief Compliance Officer"
 type: "expert"
 tier: 2
-domains: ["compliance", "risk_management", "governance", "regulatory_compliance"]
+domains: ["compliance", "risk_management", "governance", "policy_implementation"]
 include_flag: true
 ---
 

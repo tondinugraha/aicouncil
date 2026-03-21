@@ -3,7 +3,7 @@ name: "Tax Advisor"
 role: "Tax & Compliance Advisor"
 type: "expert"
 tier: 3
-domains: ["taxation", "compliance", "financial_regulation"]
+domains: ["taxation", "tax_compliance", "financial_regulation"]
 include_flag: true
 ---
 

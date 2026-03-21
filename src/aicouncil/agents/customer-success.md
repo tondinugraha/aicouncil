@@ -1,9 +1,9 @@
 ---
-name: "Customer Success"
+name: "Customer Success Manager"
 role: "VP of Customer Success"
 type: "expert"
 tier: 2
-domains: ["customer_success", "retention", "onboarding", "churn_prevention"]
+domains: ["customer_success", "retention", "customer_onboarding", "churn_prevention"]
 include_flag: true
 ---
 

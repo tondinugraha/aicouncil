@@ -3,7 +3,7 @@ name: "Data Scientist"
 role: "Senior Data Scientist"
 type: "expert"
 tier: 2
-domains: ["data_science", "machine_learning", "analytics", "statistics"]
+domains: ["data_science", "machine_learning", "analytics", "predictive_modeling"]
 include_flag: true
 ---
 

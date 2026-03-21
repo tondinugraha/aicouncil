@@ -3,7 +3,7 @@ name: "Backend Developer"
 role: "Senior Backend Developer"
 type: "builder"
 tier: 1
-domains: ["backend", "api_design", "databases"]
+domains: ["backend", "api_design", "data_persistence"]
 include_flag: true
 ---
 

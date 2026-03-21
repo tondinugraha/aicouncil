@@ -3,7 +3,7 @@ name: "Fullstack Developer"
 role: "Senior Fullstack Developer"
 type: "builder"
 tier: 1
-domains: ["fullstack", "web_development", "frontend", "backend"]
+domains: ["fullstack", "web_development", "cross_stack", "rapid_prototyping"]
 include_flag: true
 ---
 

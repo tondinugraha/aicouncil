@@ -3,7 +3,7 @@ name: "Junior Developer"
 role: "Early Career Developer"
 type: "user"
 tier: 2
-domains: ["developer_experience", "learning", "onboarding", "tooling"]
+domains: ["developer_experience", "learning", "developer_onboarding", "tooling"]
 include_flag: true
 ---
 

@@ -407,13 +407,21 @@ class TestLoadAgentsFromDirectory:
 class TestLoadBuiltinAgents:
     def test_loads_seed_agents(self):
         agents = load_builtin_agents()
-        assert len(agents) == 40
+        assert len(agents) == 40  # 9T1 + 12T2 + 7T3 experts + 4 builders + 8 users
         names = {a.name for a in agents}
+        # Spot-check original 5 seeds
         assert "Software Architect" in names
         assert "Security Engineer" in names
         assert "Tax Advisor" in names
         assert "Backend Developer" in names
         assert "Entrepreneur" in names
+        # Spot-check new agents across categories
+        assert "DevOps Engineer" in names
+        assert "Compliance Officer" in names
+        assert "Actuary" in names
+        assert "Customer Success Manager" in names
+        assert "Database Engineer" in names
+        assert "Junior Developer" in names
 
     def test_agent_types(self):
         agents = load_builtin_agents()
@@ -428,6 +436,17 @@ class TestLoadBuiltinAgents:
         assert tiers["Software Architect"] == 1
         assert tiers["Security Engineer"] == 2
         assert tiers["Tax Advisor"] == 3
+        assert tiers["Actuary"] == 3
+        assert tiers["Fullstack Developer"] == 1
+
+    def test_include_flag_false_agents_excluded(self):
+        """User agents with include_flag=false are excluded by flagged-only filter."""
+        roster = AgentRoster(agents=load_builtin_agents())
+        all_users = roster.users(include_flagged_only=False)
+        flagged_users = roster.users(include_flagged_only=True)
+        excluded = {a.name for a in all_users} - {a.name for a in flagged_users}
+        assert excluded == {"Employee", "Executive", "Parent"}
+        assert len(flagged_users) == 5  # 5 broadly useful user perspectives
 
 
 # ---------------------------------------------------------------------------
