@@ -1,6 +1,6 @@
 # Story 1.5: Agent Roster Authoring
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -37,81 +37,82 @@ so that council deliberations have substantive, domain-specific expertise across
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Author Tier 1 Expert Agents (AC: #1, #2)
-  - [ ] Expand existing `software-architect.md` if needed (already exists as seed — verify quality matches roster standard)
-  - [ ] Create `devops-engineer.md` — Tier 1 expert
-  - [ ] Create `product-manager.md` — Tier 1 expert
-  - [ ] Create `business-strategist.md` — Tier 1 expert
-  - [ ] Create `lawyer.md` — Tier 1 expert
-  - [ ] Create `investor.md` — Tier 1 expert (VC/Angel perspective)
-  - [ ] Create `sales-strategist.md` — Tier 1 expert
-  - [ ] Create `qa-engineer.md` — Tier 1 expert
-  - [ ] Create `hr-specialist.md` — Tier 1 expert
-  - [ ] Verify: 10 Tier 1 experts total (including existing software-architect)
+- [x] Task 1: Author Tier 1 Expert Agents (AC: #1, #2)
+  - [x] Expand existing `software-architect.md` if needed (already exists as seed — verify quality matches roster standard)
+  - [x] Create `devops-engineer.md` — Tier 1 expert
+  - [x] Create `product-manager.md` — Tier 1 expert
+  - [x] Create `business-strategist.md` — Tier 1 expert
+  - [x] Create `lawyer.md` — Tier 1 expert
+  - [x] Create `investor.md` — Tier 1 expert (VC/Angel perspective)
+  - [x] Create `sales-strategist.md` — Tier 1 expert
+  - [x] Create `qa-engineer.md` — Tier 1 expert
+  - [x] Create `hr-specialist.md` — Tier 1 expert
+  - [x] Verify: 10 Tier 1 experts total (including existing software-architect)
 
-- [ ] Task 2: Author Tier 2 Expert Agents (AC: #1, #2)
-  - [ ] Expand existing `security-engineer.md` if needed (already exists as seed — verify quality)
-  - [ ] Create `frontend-developer.md` — Tier 2 expert
-  - [ ] Create `data-scientist.md` — Tier 2 expert
-  - [ ] Create `ux-designer.md` — Tier 2 expert
-  - [ ] Create `financial-advisor.md` — Tier 2 expert
-  - [ ] Create `marketing-strategist.md` — Tier 2 expert
-  - [ ] Create `accountant.md` — Tier 2 expert (distinct from tax-advisor in Tier 3 — focuses on bookkeeping, financial statements, cost analysis)
-  - [ ] Create `growth-hacker.md` — Tier 2 expert
-  - [ ] Create `pricing-strategist.md` — Tier 2 expert
-  - [ ] Create `customer-success.md` — Tier 2 expert
-  - [ ] Create `technical-writer.md` — Tier 2 expert
-  - [ ] Create `compliance-officer.md` — Tier 2 expert
-  - [ ] Verify: 12 Tier 2 experts total (including existing security-engineer)
+- [x] Task 2: Author Tier 2 Expert Agents (AC: #1, #2)
+  - [x] Expand existing `security-engineer.md` if needed (already exists as seed — verify quality)
+  - [x] Create `frontend-developer.md` — Tier 2 expert
+  - [x] Create `data-scientist.md` — Tier 2 expert
+  - [x] Create `ux-designer.md` — Tier 2 expert
+  - [x] Create `financial-advisor.md` — Tier 2 expert
+  - [x] Create `marketing-strategist.md` — Tier 2 expert
+  - [x] Create `accountant.md` — Tier 2 expert (distinct from tax-advisor in Tier 3 — focuses on bookkeeping, financial statements, cost analysis)
+  - [x] Create `growth-hacker.md` — Tier 2 expert
+  - [x] Create `pricing-strategist.md` — Tier 2 expert
+  - [x] Create `customer-success.md` — Tier 2 expert
+  - [x] Create `technical-writer.md` — Tier 2 expert
+  - [x] Create `compliance-officer.md` — Tier 2 expert
+  - [x] Verify: 12 Tier 2 experts total (including existing security-engineer)
 
-- [ ] Task 3: Author Tier 3 Expert Agents (AC: #1, #2)
-  - [ ] Expand existing `tax-advisor.md` if needed (already exists as seed — verify quality)
-  - [ ] Create `statistician.md` — Tier 3 expert
-  - [ ] Create `economist.md` — Tier 3 expert
-  - [ ] Create `psychologist.md` — Tier 3 expert
-  - [ ] Create `medical-professional.md` — Tier 3 expert
-  - [ ] Create `educator.md` — Tier 3 expert
-  - [ ] Create `actuary.md` — Tier 3 expert
-  - [ ] Verify: 7 Tier 3 experts total (including existing tax-advisor)
+- [x] Task 3: Author Tier 3 Expert Agents (AC: #1, #2)
+  - [x] Expand existing `tax-advisor.md` if needed (already exists as seed — verify quality)
+  - [x] Create `statistician.md` — Tier 3 expert
+  - [x] Create `economist.md` — Tier 3 expert
+  - [x] Create `psychologist.md` — Tier 3 expert
+  - [x] Create `medical-professional.md` — Tier 3 expert
+  - [x] Create `educator.md` — Tier 3 expert
+  - [x] Create `actuary.md` — Tier 3 expert
+  - [x] Verify: 7 Tier 3 experts total (including existing tax-advisor)
 
-- [ ] Task 4: Author Builder Agents (AC: #1, #2)
-  - [ ] Expand existing `backend-developer.md` if needed (already exists as seed — verify quality)
-  - [ ] Create `fullstack-developer.md` — Tier 1 builder
-  - [ ] Create `mobile-developer.md` — Tier 2 builder
-  - [ ] Create `database-engineer.md` — Tier 2 builder
-  - [ ] Verify: 4 builders total (including existing backend-developer)
+- [x] Task 4: Author Builder Agents (AC: #1, #2)
+  - [x] Expand existing `backend-developer.md` if needed (already exists as seed — verify quality)
+  - [x] Create `fullstack-developer.md` — Tier 1 builder
+  - [x] Create `mobile-developer.md` — Tier 2 builder
+  - [x] Create `database-engineer.md` — Tier 2 builder
+  - [x] Verify: 4 builders total (including existing backend-developer)
 
-- [ ] Task 5: Author User-Type Agents (AC: #1, #2, #4)
-  - [ ] Expand existing `entrepreneur.md` if needed (already exists as seed — verify quality)
-  - [ ] Create `employee.md` — Non-technical employee, `include_flag: false` (only for product/business topics)
-  - [ ] Create `student.md` — University student, `include_flag: true`
-  - [ ] Create `consumer.md` — End customer/consumer, `include_flag: true`
-  - [ ] Create `executive.md` — Non-technical C-suite, `include_flag: false` (only for business/strategy topics)
-  - [ ] Create `junior-developer.md` — Early career dev, `include_flag: true`
-  - [ ] Create `freelancer.md` — Solopreneur/freelancer, `include_flag: true`
-  - [ ] Create `parent.md` — Parent perspective, `include_flag: false` (only for consumer/education topics)
-  - [ ] Verify: 8 user agents total (including existing entrepreneur)
-  - [ ] Verify: `include_flag` assignments make sense — `true` for broadly useful perspectives, `false` for niche
+- [x] Task 5: Author User-Type Agents (AC: #1, #2, #4)
+  - [x] Expand existing `entrepreneur.md` if needed (already exists as seed — verify quality)
+  - [x] Create `employee.md` — Non-technical employee, `include_flag: false` (only for product/business topics)
+  - [x] Create `student.md` — University student, `include_flag: true`
+  - [x] Create `consumer.md` — End customer/consumer, `include_flag: true`
+  - [x] Create `executive.md` — Non-technical C-suite, `include_flag: false` (only for business/strategy topics)
+  - [x] Create `junior-developer.md` — Early career dev, `include_flag: true`
+  - [x] Create `freelancer.md` — Solopreneur/freelancer, `include_flag: true`
+  - [x] Create `parent.md` — Parent perspective, `include_flag: false` (only for consumer/education topics)
+  - [x] Verify: 8 user agents total (including existing entrepreneur)
+  - [x] Verify: `include_flag` assignments make sense — `true` for broadly useful perspectives, `false` for niche
 
-- [ ] Task 6: Update CSV Manifest (AC: #3)
-  - [ ] Replace `src/aicouncil/agents/agent-manifest.csv` with the full roster
-  - [ ] Every agent has a corresponding row
-  - [ ] CSV columns: `name,role,type,tier,domains,include_flag`
-  - [ ] `name` column matches filename without `.md` extension (e.g., `devops-engineer` → `devops-engineer.md`)
-  - [ ] `domains` uses semicolons as delimiter (e.g., `devops;infrastructure;ci_cd`)
-  - [ ] `include_flag` is string `true` or `false`
-  - [ ] Verify: CSV row count matches total `.md` persona files
+- [x] Task 6: Update CSV Manifest (AC: #3)
+  - [x] Replace `src/aicouncil/agents/agent-manifest.csv` with the full roster
+  - [x] Every agent has a corresponding row
+  - [x] CSV columns: `name,role,type,tier,domains,include_flag`
+  - [x] `name` column matches filename without `.md` extension (e.g., `devops-engineer` → `devops-engineer.md`)
+  - [x] `domains` uses semicolons as delimiter (e.g., `devops;infrastructure;ci_cd`)
+  - [x] `include_flag` is string `true` or `false`
+  - [x] Verify: CSV row count matches total `.md` persona files
 
-- [ ] Task 7: Validate Full Roster with Agent Loader (AC: #5)
-  - [ ] Run `uv run pytest` — all 199 existing tests must pass
-  - [ ] Manually verify agent loader can parse all new agents: quick smoke test via Python REPL or a temporary test
-  - [ ] Verify agent counts: `AgentRoster.experts()` returns ~29, `AgentRoster.builders()` returns ~4, `AgentRoster.users()` returns ~8
-  - [ ] Verify tier distribution: Tier 1 ~10, Tier 2 ~12, Tier 3 ~7
+- [x] Task 7: Validate Full Roster with Agent Loader (AC: #5)
+  - [x] Run `uv run pytest` — all 204 tests pass (up from 199 due to parametrized tests picking up new agents)
+  - [x] Manually verify agent loader can parse all new agents: all 40 agents load successfully
+  - [x] Verify agent counts: 28 experts, 4 builders, 8 users (40 total)
+  - [x] Verify tier distribution: Tier 1 = 9 experts + 2 builders + 2 users, Tier 2 = 12 experts + 2 builders + 5 users, Tier 3 = 7 experts + 1 user
+  - [x] Updated 4 test assertions from hardcoded count of 5 to 40 to match expanded roster
 
-- [ ] Task 8: Lint & Format (AC: all)
-  - [ ] Run `uv run ruff format .`
-  - [ ] Run `uv run ruff check --fix .`
-  - [ ] Verify zero lint errors
+- [x] Task 8: Lint & Format (AC: all)
+  - [x] Run `uv run ruff format .`
+  - [x] Run `uv run ruff check --fix .`
+  - [x] Verify zero lint errors
 
 ## Dev Notes
 
@@ -408,9 +409,61 @@ src/aicouncil/agents/
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
+- 4 test assertions updated in `tests/test_agent_loader.py` (lines 410, 482, 487, 603) — hardcoded count of 5 updated to 40 to match expanded roster
+- Total agent count is 40 (not 41 as stated in Dev Notes) — Backend Developer was listed in both Tier 1 experts and Builders, actual count: 9 Tier 1 experts + 12 Tier 2 experts + 7 Tier 3 experts + 4 builders + 8 users = 40
 
 ### Completion Notes List
+- Created 35 new agent persona files across all categories
+- All agents follow exact Markdown template with YAML frontmatter + 4 body sections
+- Each agent has distinctive communication style and domain-specific principles
+- Existing 5 seed agents verified as high quality — no expansion needed
+- CSV manifest updated from 5 rows to 40 rows
+- include_flag: true for 5 broadly useful user agents, false for 3 niche perspectives
+- 204 tests pass with zero regressions
+- Zero lint errors
+
+### Change Log
+- 2026-03-21: Authored full agent roster (35 new agents + CSV manifest update). Updated 4 test assertions for expanded roster counts.
 
 ### File List
+- `src/aicouncil/agents/devops-engineer.md` (new)
+- `src/aicouncil/agents/product-manager.md` (new)
+- `src/aicouncil/agents/business-strategist.md` (new)
+- `src/aicouncil/agents/lawyer.md` (new)
+- `src/aicouncil/agents/investor.md` (new)
+- `src/aicouncil/agents/sales-strategist.md` (new)
+- `src/aicouncil/agents/qa-engineer.md` (new)
+- `src/aicouncil/agents/hr-specialist.md` (new)
+- `src/aicouncil/agents/frontend-developer.md` (new)
+- `src/aicouncil/agents/data-scientist.md` (new)
+- `src/aicouncil/agents/ux-designer.md` (new)
+- `src/aicouncil/agents/financial-advisor.md` (new)
+- `src/aicouncil/agents/marketing-strategist.md` (new)
+- `src/aicouncil/agents/accountant.md` (new)
+- `src/aicouncil/agents/growth-hacker.md` (new)
+- `src/aicouncil/agents/pricing-strategist.md` (new)
+- `src/aicouncil/agents/customer-success.md` (new)
+- `src/aicouncil/agents/technical-writer.md` (new)
+- `src/aicouncil/agents/compliance-officer.md` (new)
+- `src/aicouncil/agents/statistician.md` (new)
+- `src/aicouncil/agents/economist.md` (new)
+- `src/aicouncil/agents/psychologist.md` (new)
+- `src/aicouncil/agents/medical-professional.md` (new)
+- `src/aicouncil/agents/educator.md` (new)
+- `src/aicouncil/agents/actuary.md` (new)
+- `src/aicouncil/agents/fullstack-developer.md` (new)
+- `src/aicouncil/agents/mobile-developer.md` (new)
+- `src/aicouncil/agents/database-engineer.md` (new)
+- `src/aicouncil/agents/employee.md` (new)
+- `src/aicouncil/agents/student.md` (new)
+- `src/aicouncil/agents/consumer.md` (new)
+- `src/aicouncil/agents/executive.md` (new)
+- `src/aicouncil/agents/junior-developer.md` (new)
+- `src/aicouncil/agents/freelancer.md` (new)
+- `src/aicouncil/agents/parent.md` (new)
+- `src/aicouncil/agents/agent-manifest.csv` (modified)
+- `tests/test_agent_loader.py` (modified)
+- `_bmad-output/implementation-artifacts/1-5-agent-roster-authoring.md` (modified)

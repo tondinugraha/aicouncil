@@ -407,7 +407,7 @@ class TestLoadAgentsFromDirectory:
 class TestLoadBuiltinAgents:
     def test_loads_seed_agents(self):
         agents = load_builtin_agents()
-        assert len(agents) == 5
+        assert len(agents) == 40
         names = {a.name for a in agents}
         assert "Software Architect" in names
         assert "Security Engineer" in names
@@ -479,12 +479,12 @@ class TestLoadAllAgents:
         assert custom is not None
         # Built-ins still present
         assert roster.get_by_name("Software Architect") is not None
-        assert len(roster.agents) == 6  # 5 built-in + 1 user
+        assert len(roster.agents) == 41  # 40 built-in + 1 user
 
     def test_no_user_agents(self, tmp_path):
         """Works fine when no user agents directory exists."""
         roster = load_all_agents(project_root=tmp_path)
-        assert len(roster.agents) == 5  # Just built-ins
+        assert len(roster.agents) == 40  # Just built-ins
 
 
 # ---------------------------------------------------------------------------
@@ -600,7 +600,7 @@ class TestSingleton:
     def test_get_agents_returns_roster(self, tmp_path):
         roster = get_agents(project_root=tmp_path)
         assert isinstance(roster, AgentRoster)
-        assert len(roster.agents) == 5  # Built-in seed agents
+        assert len(roster.agents) == 40  # Built-in agents
 
     def test_get_agents_caches(self, tmp_path):
         roster1 = get_agents(project_root=tmp_path)
@@ -691,8 +691,7 @@ class TestPatchFixes:
         agents_dir.mkdir()
         manifest = agents_dir / "agent-manifest.csv"
         manifest.write_text(
-            "name,role,type,tier,domains,include_flag\n"
-            "../../etc/passwd,Evil,expert,1,evil,true\n"
+            "name,role,type,tier,domains,include_flag\n../../etc/passwd,Evil,expert,1,evil,true\n"
         )
         agents = load_agents_from_directory(agents_dir)
         assert agents == []

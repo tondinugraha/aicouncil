@@ -1,6 +1,41 @@
 name,role,type,tier,domains,include_flag
 software-architect,Principal Software Architect,expert,1,architecture;design_patterns;system_design,true
+devops-engineer,Senior DevOps Engineer,expert,1,devops;infrastructure;ci_cd;cloud;monitoring,true
+product-manager,Senior Product Manager,expert,1,product_management;roadmap;user_research;prioritization,true
+business-strategist,Corporate Strategy Consultant,expert,1,business_strategy;competitive_analysis;market_entry;organizational_design,true
+lawyer,Technology & Business Attorney,expert,1,legal;contracts;intellectual_property;regulatory,true
+investor,Venture Capital Investor,expert,1,venture_capital;fundraising;valuation;startup_finance,true
+sales-strategist,VP of Sales,expert,1,sales;revenue;go_to_market;crm,true
+qa-engineer,Senior QA Engineer,expert,1,testing;quality_assurance;test_automation;reliability,true
+hr-specialist,People Operations Director,expert,1,human_resources;talent_management;organizational_culture;employment_law,true
 security-engineer,Application Security Engineer,expert,2,security;authentication;compliance,true
+frontend-developer,Senior Frontend Developer,expert,2,frontend;ui_development;web_performance;accessibility,true
+data-scientist,Senior Data Scientist,expert,2,data_science;machine_learning;analytics;statistics,true
+ux-designer,Lead UX Designer,expert,2,ux_design;user_research;interaction_design;usability,true
+financial-advisor,Corporate Financial Advisor,expert,2,corporate_finance;financial_planning;cash_flow;budgeting,true
+marketing-strategist,Head of Marketing,expert,2,marketing;brand_strategy;digital_marketing;content_strategy,true
+accountant,Senior Accountant,expert,2,accounting;financial_statements;bookkeeping;cost_analysis,true
+growth-hacker,Head of Growth,expert,2,growth;user_acquisition;conversion_optimization;product_led_growth,true
+pricing-strategist,Pricing & Monetization Strategist,expert,2,pricing;monetization;packaging;revenue_optimization,true
+customer-success,VP of Customer Success,expert,2,customer_success;retention;onboarding;churn_prevention,true
+technical-writer,Senior Technical Writer,expert,2,technical_writing;documentation;api_docs;developer_experience,true
+compliance-officer,Chief Compliance Officer,expert,2,compliance;risk_management;governance;regulatory_compliance,true
 tax-advisor,Tax & Compliance Advisor,expert,3,taxation;compliance;financial_regulation,true
+statistician,Applied Statistician,expert,3,statistics;experimental_design;probability;causal_inference,true
+economist,Applied Economist,expert,3,economics;market_dynamics;behavioral_economics;policy_analysis,true
+psychologist,Organizational Psychologist,expert,3,psychology;organizational_behavior;cognitive_bias;team_dynamics,true
+medical-professional,Health Informatics Physician,expert,3,healthcare;health_informatics;clinical_workflows;medical_regulation,true
+educator,Education Technology Specialist,expert,3,education;edtech;curriculum_design;learning_science,true
+actuary,Consulting Actuary,expert,3,actuarial_science;risk_modeling;insurance;financial_risk,true
 backend-developer,Senior Backend Developer,builder,1,backend;api_design;databases,true
+fullstack-developer,Senior Fullstack Developer,builder,1,fullstack;web_development;frontend;backend,true
+mobile-developer,Senior Mobile Developer,builder,2,mobile;ios;android;cross_platform,true
+database-engineer,Senior Database Engineer,builder,2,databases;data_modeling;query_optimization;data_infrastructure,true
 entrepreneur,Startup Entrepreneur,user,1,business;product;market_fit,true
+employee,Non-Technical Employee,user,2,workplace;employee_experience;internal_tools,false
+student,University Student,user,2,education;learning;student_experience;affordability,true
+consumer,End Consumer,user,1,consumer_experience;product_feedback;usability;purchasing,true
+executive,Non-Technical C-Suite Executive,user,2,executive_leadership;business_strategy;organizational_management,false
+junior-developer,Early Career Developer,user,2,developer_experience;learning;onboarding;tooling,true
+freelancer,Solopreneur & Freelancer,user,2,freelancing;small_business;solo_operations;client_management,true
+parent,Parent & Family Perspective,user,3,family;child_safety;consumer_experience;education,false
