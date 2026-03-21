@@ -1,6 +1,6 @@
 # Story 1.4: Agent System & Loader
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -36,75 +36,75 @@ so that I can extend the council with domain-specific expertise for my project.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create agent Pydantic models (AC: #5)
-  - [ ] Create `Agent` model with all frontmatter fields (name, role, type, tier, domains, include_flag) + persona body
-  - [ ] Create `AgentRoster` model holding the merged collection with query methods (by_type, by_tier, by_domain)
-  - [ ] Type field: `Literal["expert", "builder", "user"]`; Tier field: `Literal[1, 2, 3]`; domains: `list[str]`; include_flag: `bool`
-  - [ ] Place models in `src/aicouncil/schemas/agents.py` (separate from responses.py — agents are a distinct domain)
+- [x] Task 1: Create agent Pydantic models (AC: #5)
+  - [x] Create `Agent` model with all frontmatter fields (name, role, type, tier, domains, include_flag) + persona body
+  - [x] Create `AgentRoster` model holding the merged collection with query methods (by_type, by_tier, by_domain)
+  - [x] Type field: `Literal["expert", "builder", "user"]`; Tier field: `Literal[1, 2, 3]`; domains: `list[str]`; include_flag: `bool`
+  - [x] Place models in `src/aicouncil/schemas/agents.py` (separate from responses.py — agents are a distinct domain)
 
-- [ ] Task 2: Create seed built-in agents for testing (AC: #1)
-  - [ ] Create `src/aicouncil/agents/` directory with `__init__.py` (empty, makes it a package for `importlib.resources`)
-  - [ ] Create `agent-manifest.csv` with 5 seed agents (minimum viable roster for loader development + tests):
+- [x] Task 2: Create seed built-in agents for testing (AC: #1)
+  - [x] Create `src/aicouncil/agents/` directory with `__init__.py` (empty, makes it a package for `importlib.resources`)
+  - [x] Create `agent-manifest.csv` with 5 seed agents (minimum viable roster for loader development + tests):
     - 1 Tier-1 expert (e.g., software-architect)
     - 1 Tier-2 expert (e.g., security-engineer)
     - 1 Tier-3 expert (e.g., tax-advisor)
     - 1 builder (e.g., backend-developer)
     - 1 user (e.g., entrepreneur)
-  - [ ] Create 5 corresponding `.md` persona files following the exact template format (YAML frontmatter + 4 body sections)
-  - [ ] CSV headers: `name,role,type,tier,domains,include_flag`
-  - [ ] Note: Full 35-42 roster is Story 1.5 scope — only seed agents here
+  - [x] Create 5 corresponding `.md` persona files following the exact template format (YAML frontmatter + 4 body sections)
+  - [x] CSV headers: `name,role,type,tier,domains,include_flag`
+  - [x] Note: Full 35-42 roster is Story 1.5 scope — only seed agents here
 
-- [ ] Task 3: Create `src/aicouncil/agent_loader.py` — CSV parsing (AC: #1, #4)
-  - [ ] `parse_manifest(csv_path: Path) -> list[dict]` — parse CSV manifest into list of row dicts
-  - [ ] Validate required CSV headers: name, role, type, tier, domains, include_flag
-  - [ ] Parse domains field: CSV stores as semicolon-separated string (e.g., `"architecture;design;patterns"`) → convert to `list[str]`
-  - [ ] Raise `AgentLoadError` if CSV is missing, empty, or has missing required headers
+- [x] Task 3: Create `src/aicouncil/agent_loader.py` — CSV parsing (AC: #1, #4)
+  - [x] `parse_manifest(csv_path: Path) -> list[dict]` — parse CSV manifest into list of row dicts
+  - [x] Validate required CSV headers: name, role, type, tier, domains, include_flag
+  - [x] Parse domains field: CSV stores as semicolon-separated string (e.g., `"architecture;design;patterns"`) → convert to `list[str]`
+  - [x] Raise `AgentLoadError` if CSV is missing, empty, or has missing required headers
 
-- [ ] Task 4: Create `agent_loader.py` — Markdown persona parsing (AC: #1, #4, #5)
-  - [ ] `parse_persona(md_path: Path) -> Agent` — parse single Markdown persona file
-  - [ ] Extract YAML frontmatter (between `---` delimiters) using `yaml.safe_load()`
-  - [ ] Extract Markdown body (everything after second `---`)
-  - [ ] Validate required frontmatter fields: name, role, type, tier, domains, include_flag
-  - [ ] Validate type is one of: expert, builder, user
-  - [ ] Validate tier is one of: 1, 2, 3
-  - [ ] Raise `AgentLoadError` with filename + specific issue on malformed files
-  - [ ] Return `Agent` Pydantic model instance
+- [x] Task 4: Create `agent_loader.py` — Markdown persona parsing (AC: #1, #4, #5)
+  - [x] `parse_persona(md_path: Path) -> Agent` — parse single Markdown persona file
+  - [x] Extract YAML frontmatter (between `---` delimiters) using `yaml.safe_load()`
+  - [x] Extract Markdown body (everything after second `---`)
+  - [x] Validate required frontmatter fields: name, role, type, tier, domains, include_flag
+  - [x] Validate type is one of: expert, builder, user
+  - [x] Validate tier is one of: 1, 2, 3
+  - [x] Raise `AgentLoadError` with filename + specific issue on malformed files
+  - [x] Return `Agent` Pydantic model instance
 
-- [ ] Task 5: Create `agent_loader.py` — Directory loading (AC: #1, #2, #3)
-  - [ ] `load_agents_from_directory(directory: Path) -> list[Agent]` — load all agents from a single directory
-  - [ ] Read manifest CSV to discover agents, then load each persona `.md` file
-  - [ ] If no manifest CSV exists but `.md` files exist, load `.md` files directly (user dir may not have manifest)
-  - [ ] If manifest references a file that doesn't exist, log WARNING and skip (don't fail entire load)
-  - [ ] If `.md` file exists but isn't in manifest, still load it (manifest is index, not gatekeeper)
+- [x] Task 5: Create `agent_loader.py` — Directory loading (AC: #1, #2, #3)
+  - [x] `load_agents_from_directory(directory: Path) -> list[Agent]` — load all agents from a single directory
+  - [x] Read manifest CSV to discover agents, then load each persona `.md` file
+  - [x] If no manifest CSV exists but `.md` files exist, load `.md` files directly (user dir may not have manifest)
+  - [x] If manifest references a file that doesn't exist, log WARNING and skip (don't fail entire load)
+  - [x] If `.md` file exists but isn't in manifest, still load it (manifest is index, not gatekeeper)
 
-- [ ] Task 6: Create `agent_loader.py` — Dual-directory overlay merge (AC: #2, #3)
-  - [ ] `load_builtin_agents() -> list[Agent]` — load from `src/aicouncil/agents/` using `importlib.resources`
-  - [ ] `load_user_agents(project_root: Path | None = None) -> list[Agent]` — load from `./aicouncil/agents/`
-  - [ ] `load_all_agents(project_root: Path | None = None) -> AgentRoster` — merge both, user overrides built-in by name
-  - [ ] Override key: agent `name` field (case-insensitive comparison)
-  - [ ] Return `AgentRoster` with all merged agents
+- [x] Task 6: Create `agent_loader.py` — Dual-directory overlay merge (AC: #2, #3)
+  - [x] `load_builtin_agents() -> list[Agent]` — load from `src/aicouncil/agents/` using `importlib.resources`
+  - [x] `load_user_agents(project_root: Path | None = None) -> list[Agent]` — load from `./aicouncil/agents/`
+  - [x] `load_all_agents(project_root: Path | None = None) -> AgentRoster` — merge both, user overrides built-in by name
+  - [x] Override key: agent `name` field (case-insensitive comparison)
+  - [x] Return `AgentRoster` with all merged agents
 
-- [ ] Task 7: Create `agent_loader.py` — Singleton/caching pattern (AC: #5)
-  - [ ] `get_agents() -> AgentRoster` — lazy-loaded singleton (mirrors `get_config()` pattern)
-  - [ ] `reset_agents() -> None` — reset singleton for testing
-  - [ ] Accept optional `project_root` parameter for testability
-  - [ ] Log INFO on initial load with agent count summary (e.g., "Loaded 42 agents: 30 expert, 7 builder, 5 user")
+- [x] Task 7: Create `agent_loader.py` — Singleton/caching pattern (AC: #5)
+  - [x] `get_agents() -> AgentRoster` — lazy-loaded singleton (mirrors `get_config()` pattern)
+  - [x] `reset_agents() -> None` — reset singleton for testing
+  - [x] Accept optional `project_root` parameter for testability
+  - [x] Log INFO on initial load with agent count summary (e.g., "Loaded 42 agents: 30 expert, 7 builder, 5 user")
 
-- [ ] Task 8: Write tests — `tests/test_agent_loader.py` (AC: #1-#5)
-  - [ ] Test CSV manifest parsing: valid manifest, missing headers, empty file, malformed rows
-  - [ ] Test Markdown persona parsing: valid file, missing frontmatter, missing required fields, invalid type/tier values
-  - [ ] Test directory loading: directory with manifest + personas, directory with only personas (no manifest), empty directory
-  - [ ] Test dual-directory overlay: user agent overrides built-in by name, both directories contribute unique agents
-  - [ ] Test AgentRoster query methods: by_type, by_tier, by_domain, include_flag filtering
-  - [ ] Test error handling: AgentLoadError raised with clear messages, valid agents load despite individual file failures
-  - [ ] Test singleton: get_agents(), reset_agents()
-  - [ ] Use `tmp_path` fixtures for temp directories with mock agent files
-  - [ ] Run `uv run pytest` — all tests pass including existing 153
+- [x] Task 8: Write tests — `tests/test_agent_loader.py` (AC: #1-#5)
+  - [x] Test CSV manifest parsing: valid manifest, missing headers, empty file, malformed rows
+  - [x] Test Markdown persona parsing: valid file, missing frontmatter, missing required fields, invalid type/tier values
+  - [x] Test directory loading: directory with manifest + personas, directory with only personas (no manifest), empty directory
+  - [x] Test dual-directory overlay: user agent overrides built-in by name, both directories contribute unique agents
+  - [x] Test AgentRoster query methods: by_type, by_tier, by_domain, include_flag filtering
+  - [x] Test error handling: AgentLoadError raised with clear messages, valid agents load despite individual file failures
+  - [x] Test singleton: get_agents(), reset_agents()
+  - [x] Use `tmp_path` fixtures for temp directories with mock agent files
+  - [x] Run `uv run pytest` — all tests pass including existing 153
 
-- [ ] Task 9: Lint & format (AC: all)
-  - [ ] Run `uv run ruff format .`
-  - [ ] Run `uv run ruff check --fix .`
-  - [ ] Verify zero lint errors
+- [x] Task 9: Lint & format (AC: all)
+  - [x] Run `uv run ruff format .`
+  - [x] Run `uv run ruff check --fix .`
+  - [x] Verify zero lint errors
 
 ## Dev Notes
 
@@ -388,11 +388,45 @@ tests/
 ## Dev Agent Record
 
 ### Agent Model Used
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
+N/A — no debug issues encountered.
 
 ### Completion Notes List
+- Created `Agent` (frozen Pydantic model) and `AgentRoster` (with query methods: by_type, by_tier, by_domain, experts, builders, users, get_by_name) in `schemas/agents.py`
+- Created 5 seed agent persona files (software-architect T1 expert, security-engineer T2 expert, tax-advisor T3 expert, backend-developer T1 builder, entrepreneur T1 user) with full YAML frontmatter + 4 body sections
+- Created `agent-manifest.csv` with semicolon-delimited domains
+- Implemented `agent_loader.py` with: CSV parsing (`parse_manifest`), Markdown frontmatter parsing (`parse_persona`), directory loading with graceful degradation, dual-directory overlay merge via `importlib.resources` for built-ins, singleton pattern (`get_agents`/`reset_agents`)
+- Override key is agent `name` from frontmatter (case-insensitive), not filename
+- Malformed agents are skipped with ERROR log; other agents continue loading
+- User directory works without manifest CSV — `.md` files are auto-discovered
+- 46 new tests covering: CSV parsing (valid/missing/empty/bad headers), persona parsing (valid/missing frontmatter/invalid type/tier/domains/include_flag), directory loading (manifest+personas/personas-only/empty/nonexistent/missing refs/extra files/malformed skip), dual-directory overlay (override/add/no-user), AgentRoster queries, singleton caching/reset, Agent model frozen/default persona
+- 199 total tests pass (153 existing + 46 new), zero regressions, zero lint errors
+
+### Code Review Fixes (Post-Review)
+- **P1:** Added `.strip()` to `include_flag` string coercion to handle whitespace (e.g., `" true "`)
+- **P2:** Added null-check for `name` and `role` frontmatter fields — raises `AgentLoadError` instead of silently producing `"None"` string
+- **P3:** Added path traversal sanitization on manifest CSV `name` field — rejects entries containing `/`, `\`, or `..` in both `load_agents_from_directory` and `load_builtin_agents`
+- **P4:** Eliminated code duplication — `parse_manifest()` now delegates to `_parse_manifest_text()` after reading the file
+- **P5:** Added `from e` exception chaining to tier conversion error (consistency with all other exception conversions)
+- **P6:** Fixed `Agent.name` field description from "matches filename without extension" to "Agent display name from YAML frontmatter (override key)" to match spec intent
+- **D1:** Singleton `get_agents()` now tracks `project_root` and reloads automatically when called with a different root — prevents stale cache when switching projects
+- 5 new tests added for review fixes: whitespace include_flag, null name/role, path traversal in manifest, singleton project_root reload
+- 51 agent loader tests, 204 total tests pass, zero lint errors
 
 ### Change Log
+- 2026-03-21: Implemented Story 1-4 Agent System & Loader — all 9 tasks complete
+- 2026-03-21: Code review fixes — 6 patches (P1-P6) + 1 deferred issue (D1) resolved, 5 new tests
 
 ### File List
+- `src/aicouncil/schemas/agents.py` (NEW)
+- `src/aicouncil/agent_loader.py` (NEW)
+- `src/aicouncil/agents/__init__.py` (NEW)
+- `src/aicouncil/agents/agent-manifest.csv` (NEW)
+- `src/aicouncil/agents/software-architect.md` (NEW)
+- `src/aicouncil/agents/security-engineer.md` (NEW)
+- `src/aicouncil/agents/tax-advisor.md` (NEW)
+- `src/aicouncil/agents/backend-developer.md` (NEW)
+- `src/aicouncil/agents/entrepreneur.md` (NEW)
+- `tests/test_agent_loader.py` (NEW)

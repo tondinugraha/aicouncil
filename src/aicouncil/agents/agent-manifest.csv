@@ -1,0 +1,6 @@
+name,role,type,tier,domains,include_flag
+software-architect,Principal Software Architect,expert,1,architecture;design_patterns;system_design,true
+security-engineer,Application Security Engineer,expert,2,security;authentication;compliance,true
+tax-advisor,Tax & Compliance Advisor,expert,3,taxation;compliance;financial_regulation,true
+backend-developer,Senior Backend Developer,builder,1,backend;api_design;databases,true
+entrepreneur,Startup Entrepreneur,user,1,business;product;market_fit,true
