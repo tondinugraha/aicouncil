@@ -55,7 +55,7 @@ development_status:
   # Epic 2: AI Council Deliberation
   epic-2: in-progress
   2-1-council-assembly: done
-  2-2-council-orchestration-data: backlog
+  2-2-council-orchestration-data: ready-for-dev
   2-3-council-consensus-synthesis: backlog
   2-4-council-history-output: backlog
   2-5-end-to-end-integration: backlog
