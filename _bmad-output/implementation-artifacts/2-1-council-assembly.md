@@ -1,6 +1,6 @@
 # Story 2.1: Council Assembly
 
-Status: review
+Status: done
 
 ## Story
 
@@ -543,9 +543,29 @@ Claude Opus 4.6 (1M context)
 - 36 new tests in test_council.py, 241 total tests passing (0 regressions)
 - Ruff format + lint clean
 
+#### CR 2-1: Adversarial Code Review Fixes (14 patches)
+
+3-layer review (Blind Hunter, Edge Case Hunter, Acceptance Auditor) — 22 raw findings triaged to 14 patches, 8 rejected as false positives/handled elsewhere.
+
+- P1: Fixed wildcard ratio from 6:1 to spec-correct 5:1 (`count // 6` → `count // 5`)
+- P2: Floored capability weights at 0.01 to prevent `random.choices` crash on all-zero weights
+- P3: Guarded `relevant_seats <= 0` — skip category balancing to prevent negative `target_experts`
+- P4: Moved empty-topic validation inside `try` block for consistent error handling
+- P5: Added `logger.error` with session UUID before `except CouncilError: raise`
+- P6: Removed hardcoded "Story 2.2" internal reference from user-visible orchestration notes
+- P7: Guarded empty `type_parts` to prevent bare `"."` in orchestration notes
+- P8: Standardized topic truncation to `[:100]` (was inconsistent `[:80]` vs `[:100]`)
+- P9: Sanitized newlines from topic string in orchestration notes
+- P10: Aligned `_compute_diversity_metrics` return type to `dict[str, Any]` (was `dict[str, object]`)
+- P11: Normalized unmatched domain bonus to `0.3 / len(domains)` to prevent many-domain agents from outscoring relevant ones
+- P12: Added warning log when agent has empty `domains` list (falls back to "general")
+- P13: Added `council_size >= 1` validation at assembler entry
+- P14: Added debug log when `get_domain_score` returns `None` for a domain/model pair
+
 ### Change Log
 
 - 2026-03-21: Implemented Story 2.1 — Council Assembly (all tasks)
+- 2026-03-21: CR 2-1 — 14 patches from adversarial code review, 241 tests passing, ruff clean
 
 ### File List
 

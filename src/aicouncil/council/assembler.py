@@ -7,6 +7,7 @@ and agent roster, returns assembled council composition.
 import logging
 import random
 from collections import Counter
+from typing import Any
 
 from aicouncil.config import Config
 from aicouncil.council.schemas import (
@@ -102,6 +103,9 @@ class CouncilAssembler:
         Raises:
             CouncilError: If model pool is empty or roster is empty.
         """
+        if council_size < 1:
+            raise CouncilError(f"council_size must be >= 1, got {council_size}")
+
         model_pool = self._config.get_model_pool()
         if not model_pool:
             raise CouncilError("No models in model pool — check config.yaml")
@@ -177,9 +181,13 @@ class CouncilAssembler:
         """Score an agent's relevance to the classified topic.
 
         Uses domain overlap between agent domains and classification domain scores.
-        Falls back to a default score of 0.3 for unmatched domains.
+        Unmatched domains contribute a small normalized bonus so many-domain agents
+        with zero relevance cannot outscore genuinely relevant agents.
         """
+        if not agent.domains:
+            return 0.0
         score = 0.0
+        unmatched_bonus = 0.3 / len(agent.domains)
         for domain in agent.domains:
             domain_lower = domain.lower().replace("_", " ")
             matched = False
@@ -190,7 +198,7 @@ class CouncilAssembler:
                     matched = True
                     break
             if not matched:
-                score += 0.3
+                score += unmatched_bonus
         return score
 
     def _select_agents(
@@ -245,10 +253,7 @@ class CouncilAssembler:
         # Calculate wildcard seats (5:1 ratio, inclusive of council_size)
         wildcard_seats = 0
         if include_wildcard and wildcard_candidates:
-            relevant_seats = count
-            wildcard_seats = max(1, relevant_seats // 6)
-            relevant_seats = count - wildcard_seats
-
+            wildcard_seats = max(1, count // 5)
         relevant_seats = count - wildcard_seats
 
         # Sort relevant by: score desc, then tier asc (prefer tier 1)
@@ -257,36 +262,42 @@ class CouncilAssembler:
         # Balance category mix: ~60% experts, ~25% builders, ~15% users
         selected: list[tuple[Agent, bool]] = []
 
-        # Group by type
-        experts = [(a, s) for a, s in relevant_candidates if a.type == "expert"]
-        builders = [(a, s) for a, s in relevant_candidates if a.type == "builder"]
-        users = [(a, s) for a, s in relevant_candidates if a.type == "user"]
+        if relevant_seats <= 0:
+            # No relevant seats — skip category balancing, only wildcards
+            pass
+        else:
+            # Group by type
+            experts = [(a, s) for a, s in relevant_candidates if a.type == "expert"]
+            builders = [(a, s) for a, s in relevant_candidates if a.type == "builder"]
+            users = [(a, s) for a, s in relevant_candidates if a.type == "user"]
 
-        target_experts = max(1, round(relevant_seats * 0.6))
-        target_builders = max(1, round(relevant_seats * 0.25)) if builders else 0
-        target_users = max(1, round(relevant_seats * 0.15)) if users else 0
+            target_experts = max(1, round(relevant_seats * 0.6))
+            target_builders = max(1, round(relevant_seats * 0.25)) if builders else 0
+            target_users = max(1, round(relevant_seats * 0.15)) if users else 0
 
-        # Adjust to not exceed relevant_seats
-        total_target = target_experts + target_builders + target_users
-        if total_target > relevant_seats and target_experts > 1:
-            target_experts = relevant_seats - target_builders - target_users
+            # Adjust to not exceed relevant_seats
+            total_target = target_experts + target_builders + target_users
+            if total_target > relevant_seats:
+                target_experts = max(0, relevant_seats - target_builders - target_users)
 
-        # Pick from each category
-        for agent, _ in experts[:target_experts]:
-            selected.append((agent, False))
-        for agent, _ in builders[:target_builders]:
-            selected.append((agent, False))
-        for agent, _ in users[:target_users]:
-            selected.append((agent, False))
+            # Pick from each category
+            for agent, _ in experts[:target_experts]:
+                selected.append((agent, False))
+            for agent, _ in builders[:target_builders]:
+                selected.append((agent, False))
+            for agent, _ in users[:target_users]:
+                selected.append((agent, False))
 
-        # Fill remaining seats from best remaining relevant candidates
-        selected_names = {a.name.lower() for a, _ in selected}
-        remaining = [(a, s) for a, s in relevant_candidates if a.name.lower() not in selected_names]
-        remaining.sort(key=lambda x: (-x[1], x[0].tier))
-        for agent, _ in remaining:
-            if len(selected) >= relevant_seats:
-                break
-            selected.append((agent, False))
+            # Fill remaining seats from best remaining relevant candidates
+            selected_names = {a.name.lower() for a, _ in selected}
+            remaining = [
+                (a, s) for a, s in relevant_candidates if a.name.lower() not in selected_names
+            ]
+            remaining.sort(key=lambda x: (-x[1], x[0].tier))
+            for agent, _ in remaining:
+                if len(selected) >= relevant_seats:
+                    break
+                selected.append((agent, False))
 
         # Add wildcard agents
         if wildcard_seats > 0 and wildcard_candidates:
@@ -320,8 +331,15 @@ class CouncilAssembler:
         scored: list[tuple[str, float]] = []
         for model in model_pool:
             weights = self._config.get_capability_weights(model)
-            score = weights.get_domain_score(primary_domain) if weights else 0.5
-            scored.append((model, score if score is not None else 0.5))
+            raw_score = weights.get_domain_score(primary_domain) if weights else None
+            if raw_score is None:
+                logger.debug(
+                    "[council] Domain '%s' not found in capability weights for model '%s'",
+                    primary_domain,
+                    model,
+                )
+                raw_score = 0.5
+            scored.append((model, max(raw_score, 0.01)))
 
         scored.sort(key=lambda x: x[1], reverse=True)
         top_model = scored[0][0]
@@ -329,8 +347,8 @@ class CouncilAssembler:
         if random.random() < 0.6:
             chosen_model = top_model
         else:
-            models, weights = zip(*scored)
-            chosen_model = random.choices(list(models), weights=list(weights), k=1)[0]
+            models, w = zip(*scored)
+            chosen_model = random.choices(list(models), weights=list(w), k=1)[0]
 
         context_window = self._config.get_context_window(chosen_model)
 
@@ -351,7 +369,12 @@ class CouncilAssembler:
 
     def _get_primary_domain(self, agent: Agent, classification: TopicClassification) -> str:
         """Get the agent's primary domain — highest-scored from classification, or first domain."""
-        best_domain = agent.domains[0] if agent.domains else "general"
+        if not agent.domains:
+            logger.warning(
+                "[council] Agent '%s' has no domains — falling back to 'general'", agent.name
+            )
+            return "general"
+        best_domain = agent.domains[0]
         best_score = -1.0
 
         for domain in agent.domains:
@@ -366,7 +389,7 @@ class CouncilAssembler:
 
         return best_domain
 
-    def _compute_diversity_metrics(self, assignments: list[AgentAssignment]) -> dict[str, object]:
+    def _compute_diversity_metrics(self, assignments: list[AgentAssignment]) -> dict[str, Any]:
         """Compute diversity metrics for the council composition."""
         type_counts = Counter(a.agent_type for a in assignments)
         tier_counts = Counter(a.agent_tier for a in assignments)
@@ -390,9 +413,10 @@ class CouncilAssembler:
         unique_models = len(set(a.assigned_model for a in assignments))
         wildcard_count = sum(1 for a in assignments if a.is_wildcard)
         domains = ", ".join(composition.classification.domains)
+        sanitized_topic = composition.topic.replace("\n", " ").replace("\r", "")[:100]
 
         parts = [
-            f"Council of {len(assignments)} agents assembled for topic '{composition.topic[:80]}'.",
+            f"Council of {len(assignments)} agents assembled for topic '{sanitized_topic}'.",
             f"Domains: {domains}.",
         ]
 
@@ -403,7 +427,8 @@ class CouncilAssembler:
                 if t == "user":
                     label = f"{type_counts[t]} user perspective{'s' if type_counts[t] > 1 else ''}"
                 type_parts.append(label)
-        parts.append(", ".join(type_parts) + ".")
+        if type_parts:
+            parts.append(", ".join(type_parts) + ".")
 
         if wildcard_count > 0:
             wc_names = [a.agent_name for a in assignments if a.is_wildcard]
@@ -414,9 +439,6 @@ class CouncilAssembler:
         parts.append(
             f"Models: {unique_models} unique model{'s' if unique_models > 1 else ''} assigned."
         )
-        parts.append(
-            "Host AI should direct deliberation as chairperson "
-            "— see Story 2.2 for full orchestration prompts."
-        )
+        parts.append("Host AI should direct deliberation as chairperson.")
 
         return " ".join(parts)

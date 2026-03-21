@@ -44,10 +44,10 @@ async def ai_council(
     session_id = str(uuid.uuid4())
     logger.info("[council:%s] Council session started for topic: %s", session_id, topic[:100])
 
-    if not topic or not topic.strip():
-        raise CouncilError("Topic is required for council assembly")
-
     try:
+        if not topic or not topic.strip():
+            raise CouncilError("Topic is required for council assembly")
+
         config = get_config()
 
         # Step 1: Classify topic via LLM
@@ -107,7 +107,8 @@ async def ai_council(
             orchestration_notes=orchestration_notes,
         )
 
-    except CouncilError:
+    except CouncilError as e:
+        logger.error("[council:%s] Council error: %s", session_id, e)
         raise
     except AiCouncilError as e:
         logger.error("[council:%s] Council assembly failed: %s", session_id, e)
