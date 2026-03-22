@@ -160,6 +160,6 @@ Do you want another round, or should we proceed to consensus?
 
 ## Future considerations
 
-- **Parallel agent calls:** Currently agents speak sequentially. Could call multiple `council_speak` in parallel for Round 1 (no conversation history dependency), then sequentially for later rounds.
+- **Parallel agent calls:** Decided against. All rounds (including Round 1) must be sequential — each agent builds on previous speakers, and sequential pacing simulates a real debate. The deliberation process IS the product.
 - **Streaming:** The current architecture returns complete responses. True streaming would require SSE or a different transport, which is out of scope for stdio MCP.
 - **Round management:** Could add a `council_round` tool that calls all agents in a round and returns all responses at once. Trade-off: simpler for the host AI, but less granular control.
