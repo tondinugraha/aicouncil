@@ -1,6 +1,6 @@
 # Story 2.4: Council History & Output
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -31,39 +31,39 @@ so that I can act on recommendations immediately and reference past decisions la
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define history & output Pydantic schemas (AC: #1, #2, #3)
-  - [ ] Add `AddendumMetadata` model to `council/schemas.py`
-  - [ ] Add `AddendumSaveResult` model to `council/schemas.py` (MCP tool return type)
+- [x] Task 1: Define history & output Pydantic schemas (AC: #1, #2, #3)
+  - [x] Add `AddendumMetadata` model to `council/schemas.py`
+  - [x] Add `AddendumSaveResult` model to `council/schemas.py` (MCP tool return type)
 
-- [ ] Task 2: Create `council/history.py` boundary module (AC: #2, #3, #4)
-  - [ ] Create `src/aicouncil/council/history.py`
-  - [ ] Implement `_slugify_topic(topic: str) -> str` helper
-  - [ ] Implement `_generate_filename(topic: str, timestamp: datetime | None = None) -> str` (format: `YYYY-MM-DD-topic-slug.md`)
-  - [ ] Implement `_format_addendum_markdown(metadata: AddendumMetadata, addendum_content: str) -> str`
-  - [ ] Implement `write_council_addendum(metadata: AddendumMetadata, addendum_content: str, project_root: Path | None = None) -> Path` with atomic writes
-  - [ ] Update `council/__init__.py` to export `write_council_addendum`
+- [x] Task 2: Create `council/history.py` boundary module (AC: #2, #3, #4)
+  - [x] Create `src/aicouncil/council/history.py`
+  - [x] Implement `_slugify_topic(topic: str) -> str` helper
+  - [x] Implement `_generate_filename(topic: str, timestamp: datetime | None = None) -> str` (format: `YYYY-MM-DD-topic-slug.md`)
+  - [x] Implement `_format_addendum_markdown(metadata: AddendumMetadata, addendum_content: str) -> str`
+  - [x] Implement `write_council_addendum(metadata: AddendumMetadata, addendum_content: str, project_root: Path | None = None) -> Path` with atomic writes
+  - [x] Update `council/__init__.py` to export `write_council_addendum`
 
-- [ ] Task 3: Add `save_council_addendum` MCP tool (AC: #1, #2)
-  - [ ] Add `save_council_addendum()` async function to `tools/council.py`
-  - [ ] Register tool in `server.py` via `mcp.tool()(save_council_addendum)`
+- [x] Task 3: Add `save_council_addendum` MCP tool (AC: #1, #2)
+  - [x] Add `save_council_addendum()` async function to `tools/council.py`
+  - [x] Register tool in `server.py` via `mcp.tool()(save_council_addendum)`
 
-- [ ] Task 4: Write tests (AC: all)
-  - [ ] Test `_slugify_topic` with various inputs (spaces, special chars, unicode, long strings)
-  - [ ] Test `_generate_filename` produces `YYYY-MM-DD-topic-slug.md` format
-  - [ ] Test `_format_addendum_markdown` includes metadata header (topic, agents, models, session_id)
-  - [ ] Test `write_council_addendum` creates file in correct directory
-  - [ ] Test `write_council_addendum` writes atomically (temp file + rename pattern)
-  - [ ] Test `write_council_addendum` handles missing `history/` directory (creates it)
-  - [ ] Test `write_council_addendum` wraps `OSError` in `CouncilError`
-  - [ ] Test `AddendumSaveResult` schema validation
-  - [ ] Test `save_council_addendum` tool returns `AddendumSaveResult` with file path and inline content
-  - [ ] Test duplicate filenames (same topic, same day) get disambiguated
-  - [ ] Test edge cases: empty addendum content, very long topic strings, topics with only special chars
+- [x] Task 4: Write tests (AC: all)
+  - [x] Test `_slugify_topic` with various inputs (spaces, special chars, unicode, long strings)
+  - [x] Test `_generate_filename` produces `YYYY-MM-DD-topic-slug.md` format
+  - [x] Test `_format_addendum_markdown` includes metadata header (topic, agents, models, session_id)
+  - [x] Test `write_council_addendum` creates file in correct directory
+  - [x] Test `write_council_addendum` writes atomically (temp file + rename pattern)
+  - [x] Test `write_council_addendum` handles missing `history/` directory (creates it)
+  - [x] Test `write_council_addendum` wraps `OSError` in `CouncilError`
+  - [x] Test `AddendumSaveResult` schema validation
+  - [x] Test `save_council_addendum` tool returns `AddendumSaveResult` with file path and inline content
+  - [x] Test duplicate filenames (same topic, same day) get disambiguated
+  - [x] Test edge cases: empty addendum content, very long topic strings, topics with only special chars
 
-- [ ] Task 5: Lint & Format (AC: all)
-  - [ ] `uv run ruff format .`
-  - [ ] `uv run ruff check --fix .`
-  - [ ] `uv run pytest` — all tests pass with zero regressions
+- [x] Task 5: Lint & Format (AC: all)
+  - [x] `uv run ruff format .`
+  - [x] `uv run ruff check --fix .`
+  - [x] `uv run pytest` — all tests pass with zero regressions
 
 ## Dev Notes
 
@@ -469,12 +469,31 @@ tests/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
 
+None — clean implementation, no blockers encountered.
+
 ### Completion Notes List
+
+- Task 1: Added `AddendumMetadata` and `AddendumSaveResult` Pydantic models to `council/schemas.py`
+- Task 2: Created `council/history.py` boundary module with `_slugify_topic`, `_generate_filename`, `_format_addendum_markdown`, `write_council_addendum` (atomic temp-file-then-rename). Updated `council/__init__.py` exports.
+- Task 3: Added `save_council_addendum` async tool to `tools/council.py`. Registered in `server.py`.
+- Task 4: Created `tests/test_history.py` with 36 tests covering slugify, filename generation, markdown formatting, atomic writes, duplicate disambiguation, error wrapping, schema validation, and MCP tool return type.
+- Task 5: Ruff format + check clean. 322 total tests pass (286 existing + 36 new). Zero regressions.
 
 ### Change Log
 
+- 2026-03-22: Story 2.4 implemented — council history output boundary module, save_council_addendum MCP tool, 36 new tests
+
 ### File List
+
+- `src/aicouncil/council/schemas.py` — MODIFIED (added AddendumMetadata, AddendumSaveResult)
+- `src/aicouncil/council/history.py` — NEW (sole file output boundary for council history)
+- `src/aicouncil/council/__init__.py` — MODIFIED (export write_council_addendum)
+- `src/aicouncil/tools/council.py` — MODIFIED (added save_council_addendum tool)
+- `src/aicouncil/server.py` — MODIFIED (registered save_council_addendum)
+- `tests/test_history.py` — NEW (36 tests for history module)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED (status update)
+- `_bmad-output/implementation-artifacts/2-4-council-history-output.md` — MODIFIED (story file updates)

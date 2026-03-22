@@ -194,3 +194,21 @@ class CouncilAssemblyResult(BaseModel):
     orchestration: OrchestrationData = Field(
         description="Orchestration data for the host AI chairperson"
     )
+
+
+class AddendumMetadata(BaseModel):
+    """Metadata for a council addendum file header."""
+
+    session_id: str = Field(description="Council session UUID")
+    topic: str = Field(description="Original topic provided by user")
+    agents: list[str] = Field(description="Agent names that participated")
+    model_assignments: dict[str, str] = Field(description="Mapping of agent name to assigned model")
+    timestamp: str = Field(description="ISO 8601 timestamp of council completion")
+
+
+class AddendumSaveResult(BaseModel):
+    """Result from saving a council addendum — returned by save_council_addendum tool."""
+
+    file_path: str = Field(description="Path to the saved addendum file")
+    addendum_content: str = Field(description="Full addendum narrative for inline display")
+    metadata: AddendumMetadata = Field(description="Council session metadata embedded in the file")

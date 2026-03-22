@@ -647,9 +647,7 @@ class CouncilAssembler:
         """Compute per-agent domain relevance from topic classification and agent domains."""
         topic_domains = composition.classification.domain_scores
         # Normalise topic domain keys for case/underscore-insensitive matching
-        norm_topic: dict[str, str] = {
-            k.lower().replace("_", " "): k for k in topic_domains
-        }
+        norm_topic: dict[str, str] = {k.lower().replace("_", " "): k for k in topic_domains}
         weights: list[AgentDomainWeight] = []
         for assignment in composition.assignments:
             matched_original: list[str] = []
@@ -704,11 +702,14 @@ class CouncilAssembler:
         self, agent_weights: list[AgentDomainWeight]
     ) -> DeadlockResolutionGuidance:
         """Build deadlock resolution rules with agent domain weights."""
-        weight_lines = "\n".join(
-            f"- {w.agent_name} ({w.relevance_score:.2f})"
-            f" — {', '.join(w.matched_domains) or 'no domain match'}"
-            for w in agent_weights
-        ) or "No agents in council."
+        weight_lines = (
+            "\n".join(
+                f"- {w.agent_name} ({w.relevance_score:.2f})"
+                f" — {', '.join(w.matched_domains) or 'no domain match'}"
+                for w in agent_weights
+            )
+            or "No agents in council."
+        )
         return DeadlockResolutionGuidance(
             resolution_rules=(
                 "When agents disagree on a domain-specific point, weight opinions by domain "

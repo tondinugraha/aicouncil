@@ -57,6 +57,6 @@ development_status:
   2-1-council-assembly: done
   2-2-council-orchestration-data: done
   2-3-council-consensus-synthesis: done
-  2-4-council-history-output: ready-for-dev
+  2-4-council-history-output: review
   2-5-end-to-end-integration: backlog
   epic-2-retrospective: optional

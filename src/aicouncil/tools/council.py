@@ -1,7 +1,8 @@
-"""Council tool — ai_council MCP tool for multi-agent council assembly."""
+"""Council tools — ai_council and save_council_addendum MCP tools."""
 
 import logging
 import uuid
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
@@ -13,7 +14,13 @@ from aicouncil.council.assembler import (
     build_classification_prompt,
     extract_available_domains,
 )
-from aicouncil.council.schemas import CouncilAssemblyResult, TopicClassification
+from aicouncil.council.history import write_council_addendum
+from aicouncil.council.schemas import (
+    AddendumMetadata,
+    AddendumSaveResult,
+    CouncilAssemblyResult,
+    TopicClassification,
+)
 from aicouncil.exceptions import AiCouncilError, CouncilError
 
 logger = logging.getLogger(__name__)
@@ -116,3 +123,52 @@ async def ai_council(
     except (ValidationError, TypeError, KeyError, ValueError, AttributeError) as e:
         logger.error("[council:%s] Unexpected error during assembly: %s", session_id, e)
         raise CouncilError(f"Council assembly error: {e}") from e
+
+
+async def save_council_addendum(
+    session_id: str,
+    topic: str,
+    agents: list[str],
+    model_assignments: dict[str, str],
+    addendum_content: str,
+) -> AddendumSaveResult:
+    """Save a council addendum as a timestamped markdown file and return it for inline display.
+
+    Call this tool after conducting the council deliberation and synthesizing
+    the addendum narrative. The addendum content should be the full narrative
+    following the guidance in orchestration.consensus.addendum.
+
+    Args:
+        session_id: Council session UUID from the assembly result.
+        topic: The original topic provided by the user.
+        agents: Agent names that participated in deliberation.
+        model_assignments: Mapping of agent name to assigned model.
+        addendum_content: Full addendum narrative written by the host AI.
+    """
+    logger.info("[council:%s] Saving addendum to history", session_id)
+
+    try:
+        timestamp = datetime.now(tz=UTC).isoformat()
+        metadata = AddendumMetadata(
+            session_id=session_id,
+            topic=topic,
+            agents=agents,
+            model_assignments=model_assignments,
+            timestamp=timestamp,
+        )
+
+        file_path = write_council_addendum(metadata, addendum_content)
+
+        logger.info("[council:%s] Addendum saved to %s", session_id, file_path)
+
+        return AddendumSaveResult(
+            file_path=str(file_path),
+            addendum_content=addendum_content,
+            metadata=metadata,
+        )
+
+    except CouncilError:
+        raise
+    except (ValidationError, TypeError, ValueError) as e:
+        logger.error("[council:%s] Failed to save addendum: %s", session_id, e)
+        raise CouncilError(f"Failed to save council addendum: {e}") from e
