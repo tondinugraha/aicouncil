@@ -1,6 +1,6 @@
 # Story 2.5: End-to-End Integration
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -38,45 +38,45 @@ so that I can trust the tool to deliver reliable, high-quality multi-perspective
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create integration test module (AC: #1, #3)
-  - [ ] Create `tests/test_integration.py`
-  - [ ] Test full lifecycle: `ai_council()` -> verify `CouncilAssemblyResult` -> extract metadata -> `save_council_addendum()` -> verify `AddendumSaveResult` -> verify file on disk
-  - [ ] Test assembly-to-save data handoff: session_id, topic, agents, model_assignments flow correctly between the two tools
-  - [ ] Test file content is self-contained, readable markdown with YAML frontmatter + narrative
-  - [ ] Test multiple sequential councils produce distinct history files
+- [x] Task 1: Create integration test module (AC: #1, #3)
+  - [x] Create `tests/test_integration.py`
+  - [x] Test full lifecycle: `ai_council()` -> verify `CouncilAssemblyResult` -> extract metadata -> `save_council_addendum()` -> verify `AddendumSaveResult` -> verify file on disk
+  - [x] Test assembly-to-save data handoff: session_id, topic, agents, model_assignments flow correctly between the two tools
+  - [x] Test file content is self-contained, readable markdown with YAML frontmatter + narrative
+  - [x] Test multiple sequential councils produce distinct history files
 
-- [ ] Task 2: Model unavailability & retry-then-reassign (AC: #2)
-  - [ ] Test OpenRouterClient retries 2-3x on transient errors before raising `ModelUnavailableError`
-  - [ ] Test that `ai_council` wraps `ModelUnavailableError` in `CouncilError` with session UUID in logs
-  - [ ] Test that classification failure after retries produces structured error (not traceback)
-  - [ ] Document reassignment pattern: host AI catches model failure during deliberation, invokes `ai_council` again with remaining agents pinned to new models
+- [x] Task 2: Model unavailability & retry-then-reassign (AC: #2)
+  - [x] Test OpenRouterClient retries 2-3x on transient errors before raising `ModelUnavailableError`
+  - [x] Test that `ai_council` wraps `ModelUnavailableError` in `CouncilError` with session UUID in logs
+  - [x] Test that classification failure after retries produces structured error (not traceback)
+  - [x] Document reassignment pattern: host AI catches model failure during deliberation, invokes `ai_council` again with remaining agents pinned to new models
 
-- [ ] Task 3: Pydantic response validation (AC: #3)
-  - [ ] Test `ai_council` returns `CouncilAssemblyResult` (Pydantic BaseModel) — never dict/string
-  - [ ] Test `save_council_addendum` returns `AddendumSaveResult` (Pydantic BaseModel) — never dict/string
-  - [ ] Test all nested models are proper Pydantic instances: `CouncilComposition`, `OrchestrationData`, `AgentAssignment`, `AddendumMetadata`
-  - [ ] Test error states are `CouncilError` exceptions (not raw tracebacks to MCP)
+- [x] Task 3: Pydantic response validation (AC: #3)
+  - [x] Test `ai_council` returns `CouncilAssemblyResult` (Pydantic BaseModel) — never dict/string
+  - [x] Test `save_council_addendum` returns `AddendumSaveResult` (Pydantic BaseModel) — never dict/string
+  - [x] Test all nested models are proper Pydantic instances: `CouncilComposition`, `OrchestrationData`, `AgentAssignment`, `AddendumMetadata`
+  - [x] Test error states are `CouncilError` exceptions (not raw tracebacks to MCP)
 
-- [ ] Task 4: Error handling coverage across pipeline (AC: #4)
-  - [ ] Test empty topic -> `CouncilError("Topic is required")`
-  - [ ] Test no capability domains in config -> `CouncilError("No capability domains found")`
-  - [ ] Test classification LLM returns invalid response -> `CouncilError("classification failed")`
-  - [ ] Test empty agent roster -> `CouncilError` from assembler
-  - [ ] Test addendum content > 1MB -> `CouncilError("exceeds maximum size")`
-  - [ ] Test file I/O failure -> `CouncilError` (wrapped `OSError`)
-  - [ ] Verify ALL errors include session UUID in log entries
-  - [ ] Verify no broad `Exception` catch — only specific `AiCouncilError` subclasses
+- [x] Task 4: Error handling coverage across pipeline (AC: #4)
+  - [x] Test empty topic -> `CouncilError("Topic is required")`
+  - [x] Test no capability domains in config -> `CouncilError("No capability domains found")`
+  - [x] Test classification LLM returns invalid response -> `CouncilError("classification failed")`
+  - [x] Test empty agent roster -> `CouncilError` from assembler
+  - [x] Test addendum content > 1MB -> `CouncilError("exceeds maximum size")`
+  - [x] Test file I/O failure -> `CouncilError` (wrapped `OSError`)
+  - [x] Verify ALL errors include session UUID in log entries
+  - [x] Verify no broad `Exception` catch — only specific `AiCouncilError` subclasses
 
-- [ ] Task 5: NFR validation (AC: #5)
-  - [ ] Test assembly uses exactly one LLM call (NFR2): mock client, assert `.generate()` called once
-  - [ ] Test no HTTP calls outside `client.py` (NFR5): verify httpx is only imported in client module
-  - [ ] Test all tool returns are Pydantic models (NFR — structured responses)
-  - [ ] Test session UUID correlation: verify session_id from `ai_council` matches what goes into `save_council_addendum`
+- [x] Task 5: NFR validation (AC: #5)
+  - [x] Test assembly uses exactly one LLM call (NFR2): mock client, assert `.generate()` called once
+  - [x] Test no HTTP calls outside `client.py` (NFR5): verify httpx is only imported in client module
+  - [x] Test all tool returns are Pydantic models (NFR — structured responses)
+  - [x] Test session UUID correlation: verify session_id from `ai_council` matches what goes into `save_council_addendum`
 
-- [ ] Task 6: Lint, format, run all tests (AC: all)
-  - [ ] `uv run ruff format .`
-  - [ ] `uv run ruff check --fix .`
-  - [ ] `uv run pytest` — all tests pass with zero regressions
+- [x] Task 6: Lint, format, run all tests (AC: all)
+  - [x] `uv run ruff format .`
+  - [x] `uv run ruff check --fix .`
+  - [x] `uv run pytest` — all tests pass with zero regressions
 
 ## Dev Notes
 
@@ -425,10 +425,29 @@ tests/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
 
+None — all tests passed on first run.
+
 ### Completion Notes List
 
+- Created `tests/test_integration.py` with 25 end-to-end integration tests across 5 test classes
+- **TestFullCouncilLifecycle** (4 tests): Full assembly-to-save lifecycle, data handoff consistency, self-contained markdown file validation, multiple sequential councils producing distinct files
+- **TestModelUnavailability** (4 tests): Client retry behavior (503 -> 3 retries -> ModelUnavailableError), error wrapping (ModelUnavailableError -> CouncilError), structured error on classification failure, session UUID in error logs
+- **TestErrorHandlingPipeline** (9 tests): Empty/whitespace topic, no capability domains, invalid classification, empty roster, oversized addendum (>1MB), file I/O failure, session UUID in error logs, no broad Exception catch in pipeline source (AST-based static analysis)
+- **TestPydanticResponseValidation** (4 tests): ai_council returns BaseModel, save_council_addendum returns BaseModel, nested models are Pydantic, error states are CouncilError
+- **TestNFRValidation** (4 tests): Single LLM call for assembly (NFR2), no httpx imports outside client.py (NFR5, AST-based), all tool returns are Pydantic, session UUID correlation across tools
+- Reassignment pattern documented in test docstrings: host AI catches model failure during deliberation, invokes ai_council again with remaining agents pinned to new models
+- Zero production code changes — tests only
+- 372 total tests (347 existing + 25 new), zero regressions
+- Lint clean: ruff format + ruff check passed
+
+### Change Log
+
+- 2026-03-22: Story 2.5 implementation — 25 end-to-end integration tests added
+
 ### File List
+
+- tests/test_integration.py (NEW)
