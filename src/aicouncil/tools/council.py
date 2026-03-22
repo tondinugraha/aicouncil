@@ -3,7 +3,6 @@
 import logging
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -23,6 +22,7 @@ from aicouncil.council.schemas import (
     TopicClassification,
 )
 from aicouncil.exceptions import AiCouncilError, CouncilError
+from aicouncil.roots import get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,7 @@ async def save_council_addendum(
             timestamp=timestamp,
         )
 
-        project_root = Path.cwd()
+        project_root = get_project_root()
         file_path = write_council_addendum(metadata, addendum_content, project_root=project_root)
         relative_path = file_path.relative_to(project_root)
 

@@ -213,7 +213,7 @@ class TestFullCouncilLifecycle:
 
         # Save addendum
         addendum_content = "## Consensus\nThe council recommends microservices."
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
                 topic=topic,
@@ -246,7 +246,7 @@ class TestFullCouncilLifecycle:
         agents = [a.agent_name for a in result.composition.assignments]
         model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
                 topic=topic,
@@ -274,7 +274,7 @@ class TestFullCouncilLifecycle:
         agents = [a.agent_name for a in result.composition.assignments]
         model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
                 topic="Should we adopt microservices?",
@@ -322,7 +322,7 @@ class TestFullCouncilLifecycle:
                 a.agent_name: a.assigned_model for a in result.composition.assignments
             }
 
-            with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+            with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
                 await save_council_addendum(
                     session_id=session_id,
                     topic="Should we adopt microservices?",
@@ -466,7 +466,7 @@ class TestPydanticResponseValidation:
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=result.composition.session_id,
                 topic=result.composition.topic,
@@ -505,7 +505,7 @@ class TestPydanticResponseValidation:
             assert isinstance(assignment, BaseModel)
 
         # AddendumMetadata — must invoke save to get an actual metadata instance
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=result.composition.session_id,
                 topic=result.composition.topic,
@@ -630,7 +630,7 @@ class TestErrorHandlingPipeline:
         """Addendum content > 1MB -> CouncilError('exceeds maximum size')."""
         oversized = "x" * (MAX_ADDENDUM_CONTENT_BYTES + 1)
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             with pytest.raises(CouncilError, match="exceeds maximum size"):
                 await save_council_addendum(
                     session_id=str(uuid.uuid4()),
@@ -646,7 +646,7 @@ class TestErrorHandlingPipeline:
         # Each \u00e9 is 2 bytes in UTF-8; half the byte limit + 1 chars exceeds it
         oversized = "\u00e9" * (MAX_ADDENDUM_CONTENT_BYTES // 2 + 1)
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             with pytest.raises(CouncilError, match="exceeds maximum size"):
                 await save_council_addendum(
                     session_id=str(uuid.uuid4()),
@@ -659,7 +659,7 @@ class TestErrorHandlingPipeline:
     @pytest.mark.asyncio
     async def test_file_io_failure_raises_council_error(self):
         """File I/O failure -> CouncilError (wrapped OSError)."""
-        with patch("aicouncil.tools.council.Path.cwd", return_value=Path("/nonexistent/path")):
+        with patch("aicouncil.tools.council.get_project_root", return_value=Path("/nonexistent/path")):
             with pytest.raises(CouncilError):
                 await save_council_addendum(
                     session_id=str(uuid.uuid4()),
@@ -831,7 +831,7 @@ class TestNFRValidation:
             a.agent_name: a.assigned_model for a in assembly_result.composition.assignments
         }
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
                 topic="Should we adopt microservices?",
@@ -857,7 +857,7 @@ class TestNFRValidation:
         agents = [a.agent_name for a in result.composition.assignments]
         model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
 
-        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
                 topic="Should we adopt microservices?",

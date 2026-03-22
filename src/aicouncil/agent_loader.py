@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from aicouncil.exceptions import AgentLoadError
+from aicouncil.roots import get_project_root
 from aicouncil.schemas.agents import Agent, AgentRoster
 
 logger = logging.getLogger(__name__)
@@ -279,7 +280,7 @@ def load_user_agents(project_root: Path | None = None) -> list[Agent]:
     Returns:
         List of Agent instances from ./.aicouncil/agents/.
     """
-    root = project_root or Path.cwd()
+    root = project_root or get_project_root()
     user_agents_dir = root / ".aicouncil" / "agents"
     return load_agents_from_directory(user_agents_dir)
 

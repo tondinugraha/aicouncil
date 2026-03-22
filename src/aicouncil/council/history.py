@@ -13,6 +13,7 @@ from pathlib import Path
 
 from aicouncil.council.schemas import AddendumMetadata
 from aicouncil.exceptions import CouncilError
+from aicouncil.roots import get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +150,7 @@ def write_council_addendum(
     Raises:
         CouncilError: If file I/O fails or filename disambiguation exhausted.
     """
-    root = project_root or Path.cwd()
+    root = project_root or get_project_root()
     history_dir = root / ".aicouncil" / "history"
 
     if not history_dir.exists():

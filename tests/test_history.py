@@ -477,10 +477,7 @@ class TestSaveCouncilAddendumTool:
         with patch("aicouncil.tools.council.write_council_addendum") as mock_write:
             mock_write.return_value = tmp_path / ".aicouncil" / "history" / "2026-03-22-test.md"
 
-            with patch("aicouncil.tools.council.Path") as mock_path_cls:
-                mock_cwd = tmp_path
-                mock_path_cls.cwd.return_value = mock_cwd
-
+            with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
                 result = await save_council_addendum(
                     session_id="tool-test-123",
                     topic="Test Topic",
@@ -499,9 +496,7 @@ class TestSaveCouncilAddendumTool:
     async def test_end_to_end_file_creation(self, tmp_path):
         from aicouncil.tools.council import save_council_addendum
 
-        with patch("aicouncil.tools.council.Path") as mock_path_cls:
-            mock_path_cls.cwd.return_value = tmp_path
-
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             result = await save_council_addendum(
                 session_id="e2e-test",
                 topic="End to End Test",
@@ -519,9 +514,7 @@ class TestSaveCouncilAddendumTool:
     async def test_returns_relative_path(self, tmp_path):
         from aicouncil.tools.council import save_council_addendum
 
-        with patch("aicouncil.tools.council.Path") as mock_path_cls:
-            mock_path_cls.cwd.return_value = tmp_path
-
+        with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             result = await save_council_addendum(
                 session_id="path-test",
                 topic="Path Test",

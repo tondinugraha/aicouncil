@@ -9,6 +9,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from aicouncil.exceptions import ConfigError
+from aicouncil.roots import get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ def load_config(project_root: Path | None = None) -> Config:
             "OPENROUTER_API_KEY not set. Add it to your .mcp.json environment variables."
         )
 
-    root = project_root or Path.cwd()
+    root = project_root or get_project_root()
     config_path = root / ".aicouncil" / "config.yaml"
 
     config_dict: dict[str, Any] = {"api_key": api_key}

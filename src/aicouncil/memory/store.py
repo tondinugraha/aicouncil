@@ -18,67 +18,28 @@ class KnowledgeStore:
     MEMORY_DIR = ".aicouncil"
     KNOWLEDGE_DIR = "knowledge"
     INDEX_FILE = "index.json"
-    README_CONTENT = """# AI Council Knowledge Store
-
-This directory contains learned knowledge about your project that AI Council
-uses to provide better, project-specific analysis and recommendations.
-
-## Structure
-
-- `knowledge/` - JSONL files containing learned insights by type
-  - `patterns.jsonl` - Code patterns discovered
-  - `architecture.jsonl` - Architectural insights
-  - `relations.jsonl` - File/module relationships
-  - `issues.jsonl` - Known issues and tech debt
-  - `conventions.jsonl` - Project conventions
-  - `insights.jsonl` - General insights
-- `index.json` - Quick lookup index
-- `config.yaml` - Memory configuration
-
-## Should I commit this?
-
-**Yes!** Sharing project knowledge across your team helps everyone get
-better AI assistance. The knowledge is specific to your codebase.
-
-## Clearing knowledge
-
-Delete specific entries using the `forget` tool, or delete this entire
-directory to start fresh.
-"""
 
     def __init__(self, project_root: str | Path | None = None):
         """Initialize knowledge store."""
         if project_root:
             self.project_root = Path(project_root)
         else:
-            # Try to detect project root from environment or by scanning
-            import os
+            from aicouncil.roots import get_project_root
 
-            env_root = os.environ.get("PROJECT_ROOT")
-            if env_root:
-                self.project_root = Path(env_root)
-            else:
-                # Use project detector to find actual project root
-                try:
-                    from aicouncil.scanner import ProjectDetector
-
-                    detector = ProjectDetector()
-                    info = detector.detect()
-                    self.project_root = Path(info.root)
-                except Exception:
-                    self.project_root = Path.cwd()
+            self.project_root = get_project_root()
 
         self.memory_dir = self.project_root / self.MEMORY_DIR
         self.knowledge_dir = self.memory_dir / self.KNOWLEDGE_DIR
         self._ensure_structure()
 
     def _ensure_structure(self):
-        """Ensure directory structure exists."""
+        """Ensure directory structure exists.
+
+        Normally ensure_scaffold() creates these on server startup.
+        This is a safety net in case the store is used before scaffold runs.
+        """
         if not self.memory_dir.exists():
             self.memory_dir.mkdir(parents=True)
-            # Create README
-            readme_path = self.memory_dir / "README.md"
-            readme_path.write_text(self.README_CONTENT)
             logger.info(f"Created AI Council knowledge store at {self.memory_dir}")
 
         if not self.knowledge_dir.exists():
