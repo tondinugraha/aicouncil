@@ -12,13 +12,19 @@ from aicouncil.council.assembler import (
     extract_available_domains,
 )
 from aicouncil.council.schemas import (
+    AddendumGuidance,
     AgentAssignment,
+    AgentDomainWeight,
     ChairpersonInstructions,
+    ConsensusAndSynthesisData,
+    ConsensusRoundGuidance,
     ContextWindowInfo,
     ConvergenceGuidance,
     CouncilAssemblyResult,
     CouncilComposition,
+    DeadlockResolutionGuidance,
     OrchestrationData,
+    TieredConsensusGuidance,
     ToneGuidance,
     TopicClassification,
 )
@@ -167,6 +173,22 @@ def sample_roster() -> AgentRoster:
     )
 
 
+def _minimal_consensus_data() -> ConsensusAndSynthesisData:
+    """Minimal ConsensusAndSynthesisData for tests that don't focus on consensus."""
+    return ConsensusAndSynthesisData(
+        consensus_round=ConsensusRoundGuidance(
+            format_instructions="test", unanimity_goal="test", dissent_handling="test"
+        ),
+        deadlock_resolution=DeadlockResolutionGuidance(
+            resolution_rules="test", transparency_rules="test", agent_weights=[]
+        ),
+        tiered_consensus=TieredConsensusGuidance(tier_definitions="test", escalation_rules="test"),
+        addendum=AddendumGuidance(
+            structure="test", detail_preservation_rules="test", dissent_inclusion_rules="test"
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Schema Tests
 # ---------------------------------------------------------------------------
@@ -270,6 +292,7 @@ class TestCouncilAssemblyResult:
                 consensus_signals="signals",
                 no_fixed_rounds="dynamic",
             ),
+            consensus=_minimal_consensus_data(),
             context_windows=[],
             agent_count=0,
             summary="Test notes",
@@ -1082,6 +1105,429 @@ class TestOrchestrationEdgeCases:
         )
         assert isinstance(result.orchestration, OrchestrationData)
         assert result.orchestration.agent_count == composition.council_size
+
+
+# ---------------------------------------------------------------------------
+# Consensus & Synthesis Tests (Story 2.3)
+# ---------------------------------------------------------------------------
+
+
+class TestConsensusRoundGuidance:
+    def test_fields_non_empty(self):
+        crg = ConsensusRoundGuidance(
+            format_instructions="format",
+            unanimity_goal="unanimity",
+            dissent_handling="dissent",
+        )
+        assert crg.format_instructions
+        assert crg.unanimity_goal
+        assert crg.dissent_handling
+
+
+class TestAgentDomainWeight:
+    def test_valid_weight(self):
+        adw = AgentDomainWeight(
+            agent_name="Test", agent_role="Role", relevance_score=0.75, matched_domains=["coding"]
+        )
+        assert adw.relevance_score == 0.75
+        assert adw.matched_domains == ["coding"]
+
+    def test_zero_relevance(self):
+        adw = AgentDomainWeight(
+            agent_name="Wildcard", agent_role="Role", relevance_score=0.0, matched_domains=[]
+        )
+        assert adw.relevance_score == 0.0
+
+    def test_max_relevance(self):
+        adw = AgentDomainWeight(
+            agent_name="Expert", agent_role="Role", relevance_score=1.0, matched_domains=["a"]
+        )
+        assert adw.relevance_score == 1.0
+
+    def test_rejects_over_one(self):
+        with pytest.raises(Exception):
+            AgentDomainWeight(
+                agent_name="X", agent_role="R", relevance_score=1.5, matched_domains=[]
+            )
+
+    def test_rejects_negative(self):
+        with pytest.raises(Exception):
+            AgentDomainWeight(
+                agent_name="X", agent_role="R", relevance_score=-0.1, matched_domains=[]
+            )
+
+
+class TestDeadlockResolutionGuidance:
+    def test_has_weights(self):
+        drg = DeadlockResolutionGuidance(
+            resolution_rules="rules",
+            transparency_rules="transparency",
+            agent_weights=[
+                AgentDomainWeight(
+                    agent_name="A", agent_role="R", relevance_score=0.5, matched_domains=["x"]
+                )
+            ],
+        )
+        assert len(drg.agent_weights) == 1
+        assert drg.agent_weights[0].agent_name == "A"
+
+
+class TestTieredConsensusGuidance:
+    def test_fields_non_empty(self):
+        tcg = TieredConsensusGuidance(tier_definitions="tiers", escalation_rules="escalation")
+        assert tcg.tier_definitions
+        assert tcg.escalation_rules
+
+
+class TestAddendumGuidance:
+    def test_fields_non_empty(self):
+        ag = AddendumGuidance(
+            structure="structure",
+            detail_preservation_rules="detail",
+            dissent_inclusion_rules="dissent",
+        )
+        assert ag.structure
+        assert ag.detail_preservation_rules
+        assert ag.dissent_inclusion_rules
+
+
+class TestConsensusAndSynthesisData:
+    def test_composition(self):
+        data = _minimal_consensus_data()
+        assert isinstance(data.consensus_round, ConsensusRoundGuidance)
+        assert isinstance(data.deadlock_resolution, DeadlockResolutionGuidance)
+        assert isinstance(data.tiered_consensus, TieredConsensusGuidance)
+        assert isinstance(data.addendum, AddendumGuidance)
+
+
+class TestDomainWeightComputation:
+    def test_weights_reflect_classification(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        """Agents with domains matching classification get higher relevance_score."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+            include_wildcard=True,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        # Find agents with coding/business domains — they should have positive scores
+        relevant = [w for w in weights if w.matched_domains]
+        wildcards = [w for w in weights if not w.matched_domains]
+        for w in relevant:
+            assert w.relevance_score > 0.0
+        for w in wildcards:
+            assert w.relevance_score == 0.0
+
+    def test_wildcard_agent_gets_zero(self, mock_config, sample_classification, sample_roster):
+        """Wildcard agents (no matching domains) get relevance_score 0.0."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=7,
+            include_wildcard=True,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        wildcard_assignments = [a for a in composition.assignments if a.is_wildcard]
+        wildcard_names = {a.agent_name for a in wildcard_assignments}
+        for w in weights:
+            if w.agent_name in wildcard_names:
+                assert w.relevance_score == 0.0
+
+    def test_all_agents_present(self, mock_config, sample_classification, sample_roster):
+        """agent_weights list has one entry per agent in composition."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        assert len(weights) == len(composition.assignments)
+
+    def test_full_overlap_agent(self, mock_config):
+        """Agent whose domains fully cover topic domains gets highest score."""
+        classification = TopicClassification(
+            topic="coding and business",
+            domains=["coding", "business"],
+            domain_scores={"coding": 0.8, "business": 0.7},
+            reasoning="both",
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Full Overlap",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding", "business"],
+                    include_flag=True,
+                    persona="p",
+                ),
+                Agent(
+                    name="Partial Overlap",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="p",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=roster,
+            session_id="test",
+            council_size=2,
+            include_wildcard=False,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        full = next(w for w in weights if w.agent_name == "Full Overlap")
+        partial = next(w for w in weights if w.agent_name == "Partial Overlap")
+        assert full.relevance_score > partial.relevance_score
+
+    def test_no_matching_domains(self, mock_config):
+        """Agent with zero domain overlap gets relevance_score 0.0."""
+        classification = TopicClassification(
+            topic="test",
+            domains=["coding"],
+            domain_scores={"coding": 0.9},
+            reasoning="test",
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="No Match",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["psychology"],
+                    include_flag=True,
+                    persona="p",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        # Use include_wildcard=True so the agent is selected as wildcard
+        composition = assembler.assemble(
+            classification=classification,
+            roster=roster,
+            session_id="test",
+            council_size=1,
+            include_wildcard=True,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        assert len(weights) == 1
+        assert weights[0].relevance_score == 0.0
+        assert weights[0].matched_domains == []
+
+    def test_empty_topic_domains(self, mock_config):
+        """Empty domain_scores doesn't cause ZeroDivisionError."""
+        classification = TopicClassification(
+            topic="vague question",
+            domains=[],
+            domain_scores={},
+            reasoning="unclear",
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Agent",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="p",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        # With empty domain_scores, all agents are wildcards
+        composition = assembler.assemble(
+            classification=classification,
+            roster=roster,
+            session_id="test",
+            council_size=1,
+            include_wildcard=True,
+        )
+        weights = assembler._compute_agent_domain_weights(composition)
+        assert len(weights) == 1
+        assert weights[0].relevance_score == 0.0
+
+
+class TestOrchestrationDataConsensus:
+    def test_has_consensus_field(self, mock_config, sample_classification, sample_roster):
+        """OrchestrationData.consensus is ConsensusAndSynthesisData type."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert isinstance(orchestration.consensus, ConsensusAndSynthesisData)
+
+    def test_deadlock_references_agent_names(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        """deadlock_resolution.agent_weights references actual agent names from council."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        weight_names = {
+            w.agent_name for w in orchestration.consensus.deadlock_resolution.agent_weights
+        }
+        assignment_names = {a.agent_name for a in composition.assignments}
+        assert weight_names == assignment_names
+
+    def test_addendum_mentions_narrative(self, mock_config, sample_classification, sample_roster):
+        """addendum.structure mentions 'narrative'."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert "narrative" in orchestration.consensus.addendum.structure.lower()
+
+    def test_consensus_round_format(self, mock_config, sample_classification, sample_roster):
+        """consensus_round has format instructions for endorse/dissent."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        cr = orchestration.consensus.consensus_round
+        assert "Endorse" in cr.format_instructions
+        assert "Dissent" in cr.format_instructions
+
+
+class TestConsensusEdgeCases:
+    def test_single_agent_council(self, mock_config, sample_classification):
+        """Consensus guidance works for single-agent council."""
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Solo",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="solo",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=roster,
+            session_id="test",
+            council_size=1,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert isinstance(orchestration.consensus, ConsensusAndSynthesisData)
+        assert len(orchestration.consensus.deadlock_resolution.agent_weights) == 1
+
+    def test_all_same_domain(self, mock_config):
+        """Domain weights are meaningful when all agents share the same domain."""
+        classification = TopicClassification(
+            topic="coding topic",
+            domains=["coding"],
+            domain_scores={"coding": 0.9},
+            reasoning="single domain",
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name=f"Coder {i}",
+                    role="Developer",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="p",
+                )
+                for i in range(3)
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=roster,
+            session_id="test",
+            council_size=3,
+            include_wildcard=False,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        weights = orchestration.consensus.deadlock_resolution.agent_weights
+        # All same domain → all same relevance score
+        scores = {w.relevance_score for w in weights}
+        assert len(scores) == 1
+        assert scores.pop() > 0.0
+
+    def test_no_domain_overlap(self, mock_config):
+        """All agents get 0.0 relevance when no domains match classification."""
+        classification = TopicClassification(
+            topic="quantum physics",
+            domains=["quantum_physics"],
+            domain_scores={"quantum_physics": 0.95},
+            reasoning="physics",
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Coder",
+                    role="Dev",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="p",
+                ),
+                Agent(
+                    name="Biz",
+                    role="Strategist",
+                    type="expert",
+                    tier=1,
+                    domains=["business"],
+                    include_flag=True,
+                    persona="p",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=roster,
+            session_id="test",
+            council_size=2,
+            include_wildcard=False,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        for w in orchestration.consensus.deadlock_resolution.agent_weights:
+            assert w.relevance_score == 0.0
+            assert w.matched_domains == []
 
 
 # Import at module level after fixtures are defined

@@ -21,6 +21,7 @@ class AgentAssignment(BaseModel):
     agent_role: str = Field(description="Agent role title")
     agent_type: str = Field(description="Agent type: expert/builder/user")
     agent_tier: int = Field(description="Agent tier: 1/2/3")
+    domains: list[str] = Field(default_factory=list, description="Agent capability domains")
     assigned_model: str = Field(description="OpenRouter model ID")
     context_window: int | None = Field(default=None, description="Model context window in tokens")
     assignment_reasoning: str = Field(description="Why this agent + model combo")
@@ -85,6 +86,79 @@ class ContextWindowInfo(BaseModel):
         return self.context_window // 2
 
 
+class ConsensusRoundGuidance(BaseModel):
+    """Instructions for conducting the one-sentence consensus round."""
+
+    format_instructions: str = Field(
+        description="How each agent should state their consensus position"
+    )
+    unanimity_goal: str = Field(description="Instructions for driving toward unanimous agreement")
+    dissent_handling: str = Field(description="How to handle and document dissenting positions")
+
+
+class AgentDomainWeight(BaseModel):
+    """Per-agent domain relevance weight for deadlock resolution."""
+
+    agent_name: str = Field(description="Agent name")
+    agent_role: str = Field(description="Agent role for context")
+    relevance_score: float = Field(
+        description="0.0-1.0 domain relevance to this topic",
+        ge=0.0,
+        le=1.0,
+    )
+    matched_domains: list[str] = Field(description="Agent domains that overlap with topic domains")
+
+
+class DeadlockResolutionGuidance(BaseModel):
+    """Rules for resolving disagreements using domain-weighted opinions."""
+
+    resolution_rules: str = Field(description="How to apply domain weights when agents disagree")
+    transparency_rules: str = Field(
+        description="How to reflect weighting transparently in the addendum"
+    )
+    agent_weights: list[AgentDomainWeight] = Field(
+        description="Per-agent domain relevance weights for this council"
+    )
+
+
+class TieredConsensusGuidance(BaseModel):
+    """Rules for tiered consensus when unanimity is not achievable."""
+
+    tier_definitions: str = Field(
+        description="Definitions: 'all agree on X', 'most agree on Y', 'divided on Z'"
+    )
+    escalation_rules: str = Field(
+        description="When to accept tiered consensus vs. continue pushing for unanimity"
+    )
+
+
+class AddendumGuidance(BaseModel):
+    """Format and content guidance for the detail-preserving narrative addendum."""
+
+    structure: str = Field(description="Recommended sections and narrative flow for the addendum")
+    detail_preservation_rules: str = Field(
+        description="Rules for preserving reasoning detail over rigid structure"
+    )
+    dissent_inclusion_rules: str = Field(
+        description="How to include dissenting views and minority positions"
+    )
+
+
+class ConsensusAndSynthesisData(BaseModel):
+    """Complete consensus & synthesis guidance for the host AI."""
+
+    consensus_round: ConsensusRoundGuidance = Field(
+        description="How to run the one-sentence consensus round"
+    )
+    deadlock_resolution: DeadlockResolutionGuidance = Field(
+        description="Domain-weighted deadlock resolution with per-agent weights"
+    )
+    tiered_consensus: TieredConsensusGuidance = Field(
+        description="Rules for tiered fallback when unanimity fails"
+    )
+    addendum: AddendumGuidance = Field(description="Format guidance for the narrative addendum")
+
+
 class OrchestrationData(BaseModel):
     """Complete orchestration data package for the host AI chairperson."""
 
@@ -93,6 +167,9 @@ class OrchestrationData(BaseModel):
     )
     tone: ToneGuidance = Field(description="Dynamic tone shifting guidance")
     convergence: ConvergenceGuidance = Field(description="When to continue vs. drive to consensus")
+    consensus: ConsensusAndSynthesisData = Field(
+        description="Consensus round guidance and addendum format instructions"
+    )
     context_windows: list[ContextWindowInfo] = Field(
         description="Per-model context window metadata"
     )

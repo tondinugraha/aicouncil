@@ -1,6 +1,6 @@
 # Story 2.3: Council Consensus & Synthesis
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -31,39 +31,39 @@ so that I get actionable recommendations with full reasoning, not just raw opini
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define consensus & synthesis Pydantic schemas (AC: #1, #2, #3, #4)
-  - [ ] Add `ConsensusRoundGuidance` model to `council/schemas.py`
-  - [ ] Add `AgentDomainWeight` model to `council/schemas.py`
-  - [ ] Add `DeadlockResolutionGuidance` model to `council/schemas.py`
-  - [ ] Add `TieredConsensusGuidance` model to `council/schemas.py`
-  - [ ] Add `AddendumGuidance` model to `council/schemas.py`
-  - [ ] Add `ConsensusAndSynthesisData` model to `council/schemas.py` (aggregates all above)
-  - [ ] Update `OrchestrationData` to include `consensus: ConsensusAndSynthesisData` field
+- [x] Task 1: Define consensus & synthesis Pydantic schemas (AC: #1, #2, #3, #4)
+  - [x] Add `ConsensusRoundGuidance` model to `council/schemas.py`
+  - [x] Add `AgentDomainWeight` model to `council/schemas.py`
+  - [x] Add `DeadlockResolutionGuidance` model to `council/schemas.py`
+  - [x] Add `TieredConsensusGuidance` model to `council/schemas.py`
+  - [x] Add `AddendumGuidance` model to `council/schemas.py`
+  - [x] Add `ConsensusAndSynthesisData` model to `council/schemas.py` (aggregates all above)
+  - [x] Update `OrchestrationData` to include `consensus: ConsensusAndSynthesisData` field
 
-- [ ] Task 2: Build consensus data in assembler (AC: #1, #2, #3, #4)
-  - [ ] Add `_build_consensus_round_guidance()` to `CouncilAssembler`
-  - [ ] Add `_compute_agent_domain_weights()` to `CouncilAssembler`
-  - [ ] Add `_build_deadlock_resolution_guidance()` to `CouncilAssembler`
-  - [ ] Add `_build_tiered_consensus_guidance()` to `CouncilAssembler`
-  - [ ] Add `_build_addendum_guidance()` to `CouncilAssembler`
-  - [ ] Wire all into `build_orchestration_data()` as the new `consensus` field
+- [x] Task 2: Build consensus data in assembler (AC: #1, #2, #3, #4)
+  - [x] Add `_build_consensus_round_guidance()` to `CouncilAssembler`
+  - [x] Add `_compute_agent_domain_weights()` to `CouncilAssembler`
+  - [x] Add `_build_deadlock_resolution_guidance()` to `CouncilAssembler`
+  - [x] Add `_build_tiered_consensus_guidance()` to `CouncilAssembler`
+  - [x] Add `_build_addendum_guidance()` to `CouncilAssembler`
+  - [x] Wire all into `build_orchestration_data()` as the new `consensus` field
 
-- [ ] Task 3: Write tests (AC: all)
-  - [ ] Test `ConsensusRoundGuidance` schema validation
-  - [ ] Test `AgentDomainWeight` computation correctness
-  - [ ] Test `DeadlockResolutionGuidance` references agent names and weights
-  - [ ] Test `TieredConsensusGuidance` contains tiered structure rules
-  - [ ] Test `AddendumGuidance` includes all required sections
-  - [ ] Test `ConsensusAndSynthesisData` composition
-  - [ ] Test `OrchestrationData.consensus` is populated after `build_orchestration_data()`
-  - [ ] Test domain weights are normalized and sum meaningfully per agent
-  - [ ] Test domain weights reflect classification domains (high score = high weight)
-  - [ ] Test edge cases: single-agent council, all agents same domain, no matching domains, all-zero weights
+- [x] Task 3: Write tests (AC: all)
+  - [x] Test `ConsensusRoundGuidance` schema validation
+  - [x] Test `AgentDomainWeight` computation correctness
+  - [x] Test `DeadlockResolutionGuidance` references agent names and weights
+  - [x] Test `TieredConsensusGuidance` contains tiered structure rules
+  - [x] Test `AddendumGuidance` includes all required sections
+  - [x] Test `ConsensusAndSynthesisData` composition
+  - [x] Test `OrchestrationData.consensus` is populated after `build_orchestration_data()`
+  - [x] Test domain weights are normalized and sum meaningfully per agent
+  - [x] Test domain weights reflect classification domains (high score = high weight)
+  - [x] Test edge cases: single-agent council, all agents same domain, no matching domains, all-zero weights
 
-- [ ] Task 4: Lint & Format (AC: all)
-  - [ ] `uv run ruff format .`
-  - [ ] `uv run ruff check --fix .`
-  - [ ] `uv run pytest` — all tests pass with zero regressions
+- [x] Task 4: Lint & Format (AC: all)
+  - [x] `uv run ruff format .`
+  - [x] `uv run ruff check --fix .`
+  - [x] `uv run pytest` — all tests pass with zero regressions
 
 ## Dev Notes
 
@@ -620,12 +620,29 @@ tests/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- Added 6 consensus/synthesis Pydantic schemas: `ConsensusRoundGuidance`, `AgentDomainWeight`, `DeadlockResolutionGuidance`, `TieredConsensusGuidance`, `AddendumGuidance`, `ConsensusAndSynthesisData`
+- Added `domains: list[str]` field to `AgentAssignment` (was missing — needed for domain weight computation; story Dev Notes incorrectly stated it already existed)
+- Updated `OrchestrationData` with new required `consensus: ConsensusAndSynthesisData` field
+- Added 6 private builder methods to `CouncilAssembler`: `_build_consensus_and_synthesis()`, `_compute_agent_domain_weights()`, `_build_consensus_round_guidance()`, `_build_deadlock_resolution_guidance()`, `_build_tiered_consensus_guidance()`, `_build_addendum_guidance()`
+- Wired consensus builder into `build_orchestration_data()` — existing tool layer (`tools/council.py`) unchanged
+- Added 23 new tests (261 → 284 total), covering schema validation, domain weight computation, integration, and edge cases
+- Updated existing test that constructed `OrchestrationData` directly to include new `consensus` field
+- Empty `domain_scores` guard prevents ZeroDivisionError (defensive pattern from CR 2-2)
+
 ### Change Log
 
+- 2026-03-22: Story 2.3 implementation — consensus & synthesis schemas, domain weight computation, assembler builders, 23 new tests
+
 ### File List
+
+- `src/aicouncil/council/schemas.py` — Added 6 consensus schemas + `domains` field on `AgentAssignment` + `consensus` field on `OrchestrationData`
+- `src/aicouncil/council/assembler.py` — Added 6 private consensus builder methods, updated imports, wired `domains` in `_assign_model()`, wired consensus in `build_orchestration_data()`
+- `tests/test_council.py` — Added `_minimal_consensus_data()` helper, updated existing `OrchestrationData` construction, added 23 new consensus tests
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — Status updated to review
+- `_bmad-output/implementation-artifacts/2-3-council-consensus-synthesis.md` — Tasks marked complete, Dev Agent Record filled

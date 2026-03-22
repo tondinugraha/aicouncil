@@ -11,12 +11,18 @@ from typing import Any
 
 from aicouncil.config import Config
 from aicouncil.council.schemas import (
+    AddendumGuidance,
     AgentAssignment,
+    AgentDomainWeight,
     ChairpersonInstructions,
+    ConsensusAndSynthesisData,
+    ConsensusRoundGuidance,
     ContextWindowInfo,
     ConvergenceGuidance,
     CouncilComposition,
+    DeadlockResolutionGuidance,
     OrchestrationData,
+    TieredConsensusGuidance,
     ToneGuidance,
     TopicClassification,
 )
@@ -362,6 +368,7 @@ class CouncilAssembler:
             agent_role=agent.role,
             agent_type=agent.type,
             agent_tier=agent.tier,
+            domains=agent.domains,
             assigned_model=chosen_model,
             context_window=context_window,
             assignment_reasoning=(
@@ -418,11 +425,13 @@ class CouncilAssembler:
         tone = self._build_tone_guidance(composition)
         convergence = self._build_convergence_guidance()
         context_windows = self._build_context_windows(composition)
+        consensus = self._build_consensus_and_synthesis(composition)
 
         return OrchestrationData(
             chairperson=chairperson,
             tone=tone,
             convergence=convergence,
+            consensus=consensus,
             context_windows=context_windows,
             agent_count=len(composition.assignments),
             summary=summary,
@@ -617,6 +626,174 @@ class CouncilAssembler:
                     )
                 )
         return windows
+
+    def _build_consensus_and_synthesis(
+        self, composition: CouncilComposition
+    ) -> ConsensusAndSynthesisData:
+        """Build consensus round guidance and addendum format instructions."""
+        agent_weights = self._compute_agent_domain_weights(composition)
+        return ConsensusAndSynthesisData(
+            consensus_round=self._build_consensus_round_guidance(),
+            deadlock_resolution=self._build_deadlock_resolution_guidance(agent_weights),
+            tiered_consensus=self._build_tiered_consensus_guidance(),
+            addendum=self._build_addendum_guidance(),
+        )
+
+    def _compute_agent_domain_weights(
+        self, composition: CouncilComposition
+    ) -> list[AgentDomainWeight]:
+        """Compute per-agent domain relevance from topic classification and agent domains."""
+        topic_domains = composition.classification.domain_scores
+        topic_domain_keys = set(topic_domains.keys())
+        weights: list[AgentDomainWeight] = []
+        for assignment in composition.assignments:
+            agent_domains = set(assignment.domains)
+            matched = agent_domains & topic_domain_keys
+            if matched and topic_domain_keys:
+                relevance = sum(topic_domains[d] for d in matched) / len(topic_domain_keys)
+            else:
+                relevance = 0.0
+            weights.append(
+                AgentDomainWeight(
+                    agent_name=assignment.agent_name,
+                    agent_role=assignment.agent_role,
+                    relevance_score=round(min(relevance, 1.0), 2),
+                    matched_domains=sorted(matched),
+                )
+            )
+        return weights
+
+    def _build_consensus_round_guidance(self) -> ConsensusRoundGuidance:
+        """Build consensus round instructions."""
+        return ConsensusRoundGuidance(
+            format_instructions=(
+                "Conduct a final consensus round. Ask each agent for exactly one sentence: "
+                "their position (endorse or dissent) and their single most important caveat.\n\n"
+                "Format per agent: '[Agent Name]: [Endorse/Dissent] — [One key caveat]'\n\n"
+                "Example:\n"
+                "'Tax Advisor: Endorse — but only if quarterly filings are automated'\n"
+                "'Security Engineer: Dissent — custom JWT creates unacceptable PCI exposure'\n\n"
+                "Collect ALL agent statements before evaluating consensus."
+            ),
+            unanimity_goal=(
+                "Primary goal is unanimous consensus. Before accepting dissent:\n"
+                "1. Ask dissenters if the majority position addresses their core concern\n"
+                "2. Propose a compromise that incorporates the dissenter's caveat\n"
+                "3. If the dissenter's concern is domain-specific and the domain experts agree "
+                "it's addressed, note the original dissent but record practical consensus\n\n"
+                "Only fall back to tiered consensus after genuine attempts at unanimity."
+            ),
+            dissent_handling=(
+                "Dissent is valuable, not a failure. When recording dissent:\n"
+                "- State the dissenter's position clearly and charitably\n"
+                "- Note their domain authority on the point of disagreement\n"
+                "- Explain why the majority position was adopted despite the dissent\n"
+                "- Preserve the dissenting argument in the addendum for future reference"
+            ),
+        )
+
+    def _build_deadlock_resolution_guidance(
+        self, agent_weights: list[AgentDomainWeight]
+    ) -> DeadlockResolutionGuidance:
+        """Build deadlock resolution rules with agent domain weights."""
+        weight_lines = "\n".join(
+            f"- {w.agent_name} ({w.relevance_score:.2f})"
+            f" — {', '.join(w.matched_domains) or 'no domain match'}"
+            for w in agent_weights
+        )
+        return DeadlockResolutionGuidance(
+            resolution_rules=(
+                "When agents disagree on a domain-specific point, weight opinions by domain "
+                "relevance:\n"
+                "- Higher relevance_score = greater authority on the specific point\n"
+                "- A domain expert's position on their domain outweighs a generalist's opinion\n"
+                "- Equal relevance agents: consider the strength of their reasoning, not just "
+                "the score\n"
+                "- Cross-domain concerns (wildcard agents) are noted but don't override domain "
+                "authority\n\n"
+                f"Agent domain weights for this council:\n{weight_lines}"
+            ),
+            transparency_rules=(
+                "Domain weighting must be transparent in the addendum:\n"
+                "- When a position is adopted based on domain authority, state this explicitly "
+                "(e.g., 'The Tax Advisor's position on 1099-K reporting is given priority as "
+                "the most domain-relevant perspective')\n"
+                "- When weighting resolves a tie, list the weights that informed the decision\n"
+                "- Never silently dismiss a position — always explain the resolution"
+            ),
+            agent_weights=agent_weights,
+        )
+
+    def _build_tiered_consensus_guidance(self) -> TieredConsensusGuidance:
+        """Build tiered consensus fallback rules."""
+        return TieredConsensusGuidance(
+            tier_definitions=(
+                "When unanimity is not achievable, structure conclusions in tiers:\n\n"
+                "Tier 1 — Universal Agreement: Positions ALL agents endorse.\n"
+                "  Prefix: 'The council unanimously recommends...'\n\n"
+                "Tier 2 — Strong Majority: Positions most agents endorse (>2/3).\n"
+                "  Prefix: 'The majority of the council recommends...'\n"
+                "  Include: count of endorsements, note dissenters by name and domain\n\n"
+                "Tier 3 — Divided: Positions where the council is split.\n"
+                "  Prefix: 'The council is divided on...'\n"
+                "  Include: both positions with supporting agents, domain-weighted assessment "
+                "of which position has stronger domain authority"
+            ),
+            escalation_rules=(
+                "Accept tiered consensus when:\n"
+                "- 2+ attempts at unanimity have been made with specific compromise proposals\n"
+                "- Dissenters have domain authority that makes their position non-dismissible\n"
+                "- The disagreement is genuinely substantive (not a misunderstanding)\n\n"
+                "Continue pushing for unanimity when:\n"
+                "- The disagreement stems from different information, not different values\n"
+                "- A compromise hasn't been explicitly proposed yet\n"
+                "- Domain experts haven't been asked to evaluate the point of disagreement"
+            ),
+        )
+
+    def _build_addendum_guidance(self) -> AddendumGuidance:
+        """Build addendum format and content guidance."""
+        return AddendumGuidance(
+            structure=(
+                "The addendum is a detail-preserving narrative. Recommended flow:\n\n"
+                "1. TOPIC & CONTEXT: What was asked and why it matters\n"
+                "2. COUNCIL COMPOSITION: Who participated, their domains, and model assignments\n"
+                "3. KEY POSITIONS: The major positions that emerged during deliberation, "
+                "with the reasoning behind each\n"
+                "4. POINTS OF DEBATE: Where agents disagreed and how those debates unfolded\n"
+                "5. CONSENSUS: The conclusion — unanimous or tiered — with clear recommendations\n"
+                "6. DISSENTING VIEWS: Any positions that weren't adopted, preserved with "
+                "reasoning\n"
+                "7. KEY CAVEATS: Conditions, risks, or assumptions underlying the recommendation"
+                "\n\n"
+                "This is a narrative, not a template. Adapt the structure to fit the actual "
+                "deliberation. A simple topic with quick consensus may skip section 4. "
+                "A complex multi-domain topic may have extensive sections 3-6."
+            ),
+            detail_preservation_rules=(
+                "The addendum must preserve reasoning, not just conclusions:\n"
+                "- Include WHY each position was held, not just WHAT it was\n"
+                "- Include the specific arguments that shifted positions during debate\n"
+                "- Include quantitative details (costs, timelines, metrics) when agents cited "
+                "them\n"
+                "- When domain experts provided specialized insight, preserve the technical "
+                "detail\n"
+                "- Detail > brevity. A 2000-word addendum that captures the full deliberation "
+                "is better than a 200-word summary that loses the reasoning."
+            ),
+            dissent_inclusion_rules=(
+                "Dissenting views are first-class content in the addendum:\n"
+                "- Every dissent appears in the addendum, attributed to the agent by name and "
+                "role\n"
+                "- The dissenter's strongest argument is stated in their own voice/style\n"
+                "- Domain-weighted context is provided (how relevant is this agent to the "
+                "point?)\n"
+                "- The addendum explicitly states whether the dissent was overruled by "
+                "domain authority, majority vote, or compromise\n"
+                "- Future-proofing: note if a dissenting position could become relevant "
+                "under different circumstances"
+            ),
+        )
 
     def _build_orchestration_notes(self, composition: CouncilComposition) -> str:
         """Build orchestration notes string from the composition."""
