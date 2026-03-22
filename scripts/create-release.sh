@@ -270,11 +270,11 @@ EOF
     # Create new entry
     local new_entry="| v${version} | ${date} | ${branch} | #${pr_number} | pending | |"
 
-    # Insert new entry after the header line
+    # Insert new entry after the table header (line 13 = separator row)
     local temp_file=$(mktemp)
-    head -n 11 "$log_file" > "$temp_file"
+    head -n 13 "$log_file" > "$temp_file"
     echo "$new_entry" >> "$temp_file"
-    tail -n +12 "$log_file" >> "$temp_file"
+    tail -n +14 "$log_file" >> "$temp_file"
     mv "$temp_file" "$log_file"
 
     print_success "Release log updated: v${version}"
