@@ -60,7 +60,7 @@ class TestLoadConfigYaml:
 
     def test_backward_compat_model_key(self, api_key_env, tmp_path):
         """Accepts 'model' key as alias for 'default_model'."""
-        aicouncil_dir = tmp_path / "aicouncil"
+        aicouncil_dir = tmp_path / ".aicouncil"
         aicouncil_dir.mkdir()
         (aicouncil_dir / "config.yaml").write_text('model: "deepseek/deepseek-r1"')
 
@@ -125,7 +125,7 @@ class TestConfigErrors:
             load_config()
 
     def test_malformed_yaml(self, api_key_env, tmp_path):
-        aicouncil_dir = tmp_path / "aicouncil"
+        aicouncil_dir = tmp_path / ".aicouncil"
         aicouncil_dir.mkdir()
         (aicouncil_dir / "config.yaml").write_text("invalid: yaml: [broken: {")
 
@@ -133,7 +133,7 @@ class TestConfigErrors:
             load_config(project_root=tmp_path)
 
     def test_invalid_temperature_type(self, api_key_env, tmp_path):
-        aicouncil_dir = tmp_path / "aicouncil"
+        aicouncil_dir = tmp_path / ".aicouncil"
         aicouncil_dir.mkdir()
         (aicouncil_dir / "config.yaml").write_text("temperature: 5.0")
 
@@ -214,7 +214,7 @@ class TestToolOverridesFiltering:
     """Test that commented-out / None tool overrides are filtered."""
 
     def test_none_values_filtered(self, api_key_env, tmp_path):
-        aicouncil_dir = tmp_path / "aicouncil"
+        aicouncil_dir = tmp_path / ".aicouncil"
         aicouncil_dir.mkdir()
         (aicouncil_dir / "config.yaml").write_text(
             """

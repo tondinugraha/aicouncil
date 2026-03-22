@@ -332,7 +332,7 @@ class TestFullCouncilLifecycle:
                 )
 
         # Two distinct files in history dir
-        history_dir = tmp_path / "aicouncil" / "history"
+        history_dir = tmp_path / ".aicouncil" / "history"
         md_files = list(history_dir.glob("*.md"))
         assert len(md_files) == 2
 

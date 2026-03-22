@@ -51,7 +51,7 @@ capability_weights:
 @pytest.fixture
 def config_dir(tmp_path, valid_config_yaml):
     """Create a temp directory with aicouncil/config.yaml."""
-    aicouncil_dir = tmp_path / "aicouncil"
+    aicouncil_dir = tmp_path / ".aicouncil"
     aicouncil_dir.mkdir()
     config_file = aicouncil_dir / "config.yaml"
     config_file.write_text(valid_config_yaml)

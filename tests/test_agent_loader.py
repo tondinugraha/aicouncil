@@ -119,7 +119,7 @@ def agent_dir(tmp_path):
 @pytest.fixture()
 def user_project(tmp_path):
     """Create a project root with user agents directory."""
-    user_agents = tmp_path / "aicouncil" / "agents"
+    user_agents = tmp_path / ".aicouncil" / "agents"
     user_agents.mkdir(parents=True)
     return tmp_path
 
@@ -457,7 +457,7 @@ class TestLoadBuiltinAgents:
 class TestLoadAllAgents:
     def test_user_overrides_builtin(self, user_project):
         """User agent with same name overrides built-in."""
-        user_agents_dir = user_project / "aicouncil" / "agents"
+        user_agents_dir = user_project / ".aicouncil" / "agents"
         (user_agents_dir / "software-architect.md").write_text(
             textwrap.dedent("""\
             ---
@@ -479,7 +479,7 @@ class TestLoadAllAgents:
 
     def test_user_adds_new_agent(self, user_project):
         """User agents that don't collide are added alongside built-ins."""
-        user_agents_dir = user_project / "aicouncil" / "agents"
+        user_agents_dir = user_project / ".aicouncil" / "agents"
         (user_agents_dir / "custom-expert.md").write_text(
             textwrap.dedent("""\
             ---

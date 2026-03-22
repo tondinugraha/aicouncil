@@ -282,17 +282,17 @@ class TestWriteCouncilAddendum:
 
     def test_file_in_history_dir(self, tmp_path, sample_metadata):
         path = write_council_addendum(sample_metadata, "content", project_root=tmp_path)
-        assert path.parent == tmp_path / "aicouncil" / "history"
+        assert path.parent == tmp_path / ".aicouncil" / "history"
 
     def test_atomic_no_tmp_files(self, tmp_path, sample_metadata):
         write_council_addendum(sample_metadata, "content", project_root=tmp_path)
-        tmp_files = list((tmp_path / "aicouncil" / "history").glob("*.tmp"))
+        tmp_files = list((tmp_path / ".aicouncil" / "history").glob("*.tmp"))
         assert len(tmp_files) == 0
 
     def test_creates_history_dir(self, tmp_path, sample_metadata):
-        assert not (tmp_path / "aicouncil" / "history").exists()
+        assert not (tmp_path / ".aicouncil" / "history").exists()
         write_council_addendum(sample_metadata, "content", project_root=tmp_path)
-        assert (tmp_path / "aicouncil" / "history").is_dir()
+        assert (tmp_path / ".aicouncil" / "history").is_dir()
 
     def test_file_includes_metadata(self, tmp_path, sample_metadata):
         path = write_council_addendum(sample_metadata, "narrative here", project_root=tmp_path)
@@ -307,7 +307,7 @@ class TestWriteCouncilAddendum:
     def test_wraps_os_error(self, tmp_path, sample_metadata):
         bad_root = tmp_path / "no-write"
         bad_root.mkdir()
-        history_dir = bad_root / "aicouncil" / "history"
+        history_dir = bad_root / ".aicouncil" / "history"
         history_dir.mkdir(parents=True)
         history_dir.chmod(stat.S_IRUSR | stat.S_IXUSR)
         try:
@@ -363,7 +363,7 @@ class TestWriteCouncilAddendum:
 
     def test_tmp_cleanup_on_os_error(self, tmp_path, sample_metadata):
         """Temp file cleaned up even on non-OSError failures."""
-        history_dir = tmp_path / "aicouncil" / "history"
+        history_dir = tmp_path / ".aicouncil" / "history"
         history_dir.mkdir(parents=True)
         with patch(
             "aicouncil.council.history._atomic_link_with_disambiguation",
@@ -441,11 +441,11 @@ class TestAddendumMetadataValidation:
 class TestAddendumSaveResult:
     def test_valid_schema(self, sample_metadata):
         result = AddendumSaveResult(
-            file_path="aicouncil/history/file.md",
+            file_path=".aicouncil/history/file.md",
             addendum_content="narrative",
             metadata=sample_metadata,
         )
-        assert result.file_path == "aicouncil/history/file.md"
+        assert result.file_path == ".aicouncil/history/file.md"
         assert result.addendum_content == "narrative"
         assert result.metadata.session_id == "test-session-abc-123"
 
@@ -475,7 +475,7 @@ class TestSaveCouncilAddendumTool:
         from aicouncil.tools.council import save_council_addendum
 
         with patch("aicouncil.tools.council.write_council_addendum") as mock_write:
-            mock_write.return_value = tmp_path / "aicouncil" / "history" / "2026-03-22-test.md"
+            mock_write.return_value = tmp_path / ".aicouncil" / "history" / "2026-03-22-test.md"
 
             with patch("aicouncil.tools.council.Path") as mock_path_cls:
                 mock_cwd = tmp_path
@@ -512,7 +512,7 @@ class TestSaveCouncilAddendumTool:
 
             assert isinstance(result, AddendumSaveResult)
             assert result.addendum_content == "Full narrative content."
-            assert result.file_path.startswith("aicouncil/history/")
+            assert result.file_path.startswith(".aicouncil/history/")
             assert (tmp_path / result.file_path).exists()
 
     @pytest.mark.asyncio
@@ -531,7 +531,7 @@ class TestSaveCouncilAddendumTool:
             )
 
             assert not os.path.isabs(result.file_path)
-            assert result.file_path.startswith("aicouncil/history/")
+            assert result.file_path.startswith(".aicouncil/history/")
 
     @pytest.mark.asyncio
     async def test_content_size_limit(self):

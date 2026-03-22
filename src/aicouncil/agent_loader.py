@@ -277,10 +277,10 @@ def load_user_agents(project_root: Path | None = None) -> list[Agent]:
         project_root: Project root path. Defaults to cwd.
 
     Returns:
-        List of Agent instances from ./aicouncil/agents/.
+        List of Agent instances from ./.aicouncil/agents/.
     """
     root = project_root or Path.cwd()
-    user_agents_dir = root / "aicouncil" / "agents"
+    user_agents_dir = root / ".aicouncil" / "agents"
     return load_agents_from_directory(user_agents_dir)
 
 

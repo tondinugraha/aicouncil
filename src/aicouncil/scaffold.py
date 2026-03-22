@@ -1,4 +1,4 @@
-"""Auto-scaffold the ./aicouncil/ project directory on first run."""
+"""Auto-scaffold the ./.aicouncil/ project directory on first run."""
 
 import logging
 import shutil
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_scaffold(project_root: Path | None = None) -> Path:
-    """Create ./aicouncil/ with defaults on first run. Idempotent.
+    """Create ./.aicouncil/ with defaults on first run. Idempotent.
 
     Creates the project-local aicouncil directory with:
     - config.yaml (default config template)
@@ -23,7 +23,7 @@ def ensure_scaffold(project_root: Path | None = None) -> Path:
         Path to the aicouncil directory.
     """
     root = project_root or Path.cwd()
-    aicouncil_dir = root / "aicouncil"
+    aicouncil_dir = root / ".aicouncil"
 
     created_dir = False
     if not aicouncil_dir.exists():

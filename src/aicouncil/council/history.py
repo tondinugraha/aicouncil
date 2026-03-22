@@ -150,7 +150,7 @@ def write_council_addendum(
         CouncilError: If file I/O fails or filename disambiguation exhausted.
     """
     root = project_root or Path.cwd()
-    history_dir = root / "aicouncil" / "history"
+    history_dir = root / ".aicouncil" / "history"
 
     if not history_dir.exists():
         logger.warning(

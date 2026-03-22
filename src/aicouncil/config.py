@@ -176,7 +176,7 @@ def load_config(project_root: Path | None = None) -> Config:
         )
 
     root = project_root or Path.cwd()
-    config_path = root / "aicouncil" / "config.yaml"
+    config_path = root / ".aicouncil" / "config.yaml"
 
     config_dict: dict[str, Any] = {"api_key": api_key}
 
