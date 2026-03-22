@@ -420,6 +420,8 @@ class CouncilAssembler:
 
     def build_orchestration_data(self, composition: CouncilComposition) -> OrchestrationData:
         """Build complete orchestration data from the assembled council."""
+        if not composition.assignments:
+            raise CouncilError("Cannot build orchestration data for empty council")
         summary = self._build_orchestration_notes(composition)
         chairperson = self._build_chairperson_instructions(composition)
         tone = self._build_tone_guidance(composition)
@@ -644,13 +646,19 @@ class CouncilAssembler:
     ) -> list[AgentDomainWeight]:
         """Compute per-agent domain relevance from topic classification and agent domains."""
         topic_domains = composition.classification.domain_scores
-        topic_domain_keys = set(topic_domains.keys())
+        # Normalise topic domain keys for case/underscore-insensitive matching
+        norm_topic: dict[str, str] = {
+            k.lower().replace("_", " "): k for k in topic_domains
+        }
         weights: list[AgentDomainWeight] = []
         for assignment in composition.assignments:
-            agent_domains = set(assignment.domains)
-            matched = agent_domains & topic_domain_keys
-            if matched and topic_domain_keys:
-                relevance = sum(topic_domains[d] for d in matched) / len(topic_domain_keys)
+            matched_original: list[str] = []
+            for d in assignment.domains:
+                norm_d = d.lower().replace("_", " ")
+                if norm_d in norm_topic:
+                    matched_original.append(norm_topic[norm_d])
+            if matched_original and norm_topic:
+                relevance = sum(topic_domains[d] for d in matched_original) / len(norm_topic)
             else:
                 relevance = 0.0
             weights.append(
@@ -658,7 +666,7 @@ class CouncilAssembler:
                     agent_name=assignment.agent_name,
                     agent_role=assignment.agent_role,
                     relevance_score=round(min(relevance, 1.0), 2),
-                    matched_domains=sorted(matched),
+                    matched_domains=sorted(matched_original),
                 )
             )
         return weights
@@ -700,7 +708,7 @@ class CouncilAssembler:
             f"- {w.agent_name} ({w.relevance_score:.2f})"
             f" — {', '.join(w.matched_domains) or 'no domain match'}"
             for w in agent_weights
-        )
+        ) or "No agents in council."
         return DeadlockResolutionGuidance(
             resolution_rules=(
                 "When agents disagree on a domain-specific point, weight opinions by domain "
@@ -731,7 +739,7 @@ class CouncilAssembler:
                 "When unanimity is not achievable, structure conclusions in tiers:\n\n"
                 "Tier 1 — Universal Agreement: Positions ALL agents endorse.\n"
                 "  Prefix: 'The council unanimously recommends...'\n\n"
-                "Tier 2 — Strong Majority: Positions most agents endorse (>2/3).\n"
+                "Tier 2 — Strong Majority: Positions most agents endorse (>=2/3).\n"
                 "  Prefix: 'The majority of the council recommends...'\n"
                 "  Include: count of endorsements, note dissenters by name and domain\n\n"
                 "Tier 3 — Divided: Positions where the council is split.\n"
@@ -801,7 +809,7 @@ class CouncilAssembler:
         type_counts = Counter(a.agent_type for a in assignments)
         unique_models = len(set(a.assigned_model for a in assignments))
         wildcard_count = sum(1 for a in assignments if a.is_wildcard)
-        domains = ", ".join(composition.classification.domains)
+        domains = ", ".join(composition.classification.domains) or "none identified"
         sanitized_topic = composition.topic.replace("\n", " ").replace("\r", "")[:100]
 
         parts = [

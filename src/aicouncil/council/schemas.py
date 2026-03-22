@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class TopicClassification(BaseModel):
@@ -12,6 +12,16 @@ class TopicClassification(BaseModel):
     domains: list[str] = Field(description="Identified capability domains")
     domain_scores: dict[str, float] = Field(description="Domain to confidence score (0.0-1.0)")
     reasoning: str = Field(description="Why these domains were identified")
+
+    @field_validator("domain_scores")
+    @classmethod
+    def validate_domain_scores(cls, v: dict[str, float]) -> dict[str, float]:
+        """Ensure all domain scores are within [0.0, 1.0]."""
+        for domain, score in v.items():
+            if score < 0.0 or score > 1.0:
+                msg = f"Domain score for '{domain}' must be between 0.0 and 1.0, got {score}"
+                raise ValueError(msg)
+        return v
 
 
 class AgentAssignment(BaseModel):

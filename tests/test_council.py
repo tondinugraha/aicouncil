@@ -4,6 +4,7 @@ import random
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from aicouncil.config import CapabilityWeight, Config
 from aicouncil.council.assembler import (
@@ -1145,13 +1146,13 @@ class TestAgentDomainWeight:
         assert adw.relevance_score == 1.0
 
     def test_rejects_over_one(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AgentDomainWeight(
                 agent_name="X", agent_role="R", relevance_score=1.5, matched_domains=[]
             )
 
     def test_rejects_negative(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AgentDomainWeight(
                 agent_name="X", agent_role="R", relevance_score=-0.1, matched_domains=[]
             )
@@ -1234,6 +1235,7 @@ class TestDomainWeightComputation:
         )
         weights = assembler._compute_agent_domain_weights(composition)
         wildcard_assignments = [a for a in composition.assignments if a.is_wildcard]
+        assert len(wildcard_assignments) > 0, "expected at least one wildcard in council"
         wildcard_names = {a.agent_name for a in wildcard_assignments}
         for w in weights:
             if w.agent_name in wildcard_names:
@@ -1422,6 +1424,28 @@ class TestOrchestrationDataConsensus:
         assert "Dissent" in cr.format_instructions
 
 
+class TestConsensusBuilderContent:
+    def test_unanimity_goal_has_three_step_process(self, mock_config):
+        """unanimity_goal contains the 3-step process before accepting dissent."""
+        assembler = CouncilAssembler(config=mock_config)
+        guidance = assembler._build_consensus_round_guidance()
+        assert "compromise" in guidance.unanimity_goal.lower()
+        assert "dissenters" in guidance.unanimity_goal.lower()
+        assert "domain experts" in guidance.unanimity_goal.lower()
+
+    def test_transparency_rules_require_explicit_disclosure(self, mock_config):
+        """transparency_rules requires explicit statement of domain weighting."""
+        assembler = CouncilAssembler(config=mock_config)
+        weights = [
+            AgentDomainWeight(
+                agent_name="A", agent_role="R", relevance_score=0.5, matched_domains=["x"]
+            )
+        ]
+        guidance = assembler._build_deadlock_resolution_guidance(weights)
+        assert "explicitly" in guidance.transparency_rules.lower()
+        assert "never silently dismiss" in guidance.transparency_rules.lower()
+
+
 class TestConsensusEdgeCases:
     def test_single_agent_council(self, mock_config, sample_classification):
         """Consensus guidance works for single-agent council."""
@@ -1522,7 +1546,7 @@ class TestConsensusEdgeCases:
             roster=roster,
             session_id="test",
             council_size=2,
-            include_wildcard=False,
+            include_wildcard=True,
         )
         orchestration = assembler.build_orchestration_data(composition)
         for w in orchestration.consensus.deadlock_resolution.agent_weights:

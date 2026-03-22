@@ -1,6 +1,6 @@
 # Story 2.3: Council Consensus & Synthesis
 
-Status: review
+Status: done
 
 ## Story
 
@@ -631,18 +631,32 @@ Claude Opus 4.6 (1M context)
 - Updated `OrchestrationData` with new required `consensus: ConsensusAndSynthesisData` field
 - Added 6 private builder methods to `CouncilAssembler`: `_build_consensus_and_synthesis()`, `_compute_agent_domain_weights()`, `_build_consensus_round_guidance()`, `_build_deadlock_resolution_guidance()`, `_build_tiered_consensus_guidance()`, `_build_addendum_guidance()`
 - Wired consensus builder into `build_orchestration_data()` — existing tool layer (`tools/council.py`) unchanged
-- Added 23 new tests (261 → 284 total), covering schema validation, domain weight computation, integration, and edge cases
+- Added 25 tests (261 → 286 total), covering schema validation, domain weight computation, builder content, integration, and edge cases
 - Updated existing test that constructed `OrchestrationData` directly to include new `consensus` field
 - Empty `domain_scores` guard prevents ZeroDivisionError (defensive pattern from CR 2-2)
+
+#### Code Review Fixes (CR 2-3)
+
+- **(P1 HIGH)** Fixed case-sensitive domain intersection in `_compute_agent_domain_weights` — now normalises with `.lower().replace("_", " ")` to match fuzzy matching used elsewhere in assembler
+- **(P2)** Added `assert len(wildcard_assignments) > 0` guard to `test_wildcard_agent_gets_zero` to prevent vacuous pass
+- **(P3)** Replaced `pytest.raises(Exception)` with `pytest.raises(ValidationError)` in `test_rejects_over_one` and `test_rejects_negative`
+- **(P4)** Added empty `agent_weights` fallback (`"No agents in council."`) in `_build_deadlock_resolution_guidance`
+- **(P5)** Fixed Tier 2 threshold from `>2/3` to `>=2/3` to cover exact 2/3 boundary
+- **(P6)** Added 2 tests asserting actual builder content: `unanimity_goal` 3-step process and `transparency_rules` explicit disclosure language
+- **(P7)** Added `field_validator` on `TopicClassification.domain_scores` enforcing `[0.0, 1.0]` range
+- **(P8)** Added `CouncilError` guard in `build_orchestration_data()` for empty assignments
+- **(P9)** Added `"none identified"` fallback for empty domains in `_build_orchestration_notes`
+- Fixed `test_no_domain_overlap` to use `include_wildcard=True` (was producing empty council after P8 guard)
 
 ### Change Log
 
 - 2026-03-22: Story 2.3 implementation — consensus & synthesis schemas, domain weight computation, assembler builders, 23 new tests
+- 2026-03-22: CR 2-3 fixes — 9 patches applied (case-normalisation, schema validation, test quality, empty-state guards), 2 new tests added, 286 total passing
 
 ### File List
 
-- `src/aicouncil/council/schemas.py` — Added 6 consensus schemas + `domains` field on `AgentAssignment` + `consensus` field on `OrchestrationData`
-- `src/aicouncil/council/assembler.py` — Added 6 private consensus builder methods, updated imports, wired `domains` in `_assign_model()`, wired consensus in `build_orchestration_data()`
-- `tests/test_council.py` — Added `_minimal_consensus_data()` helper, updated existing `OrchestrationData` construction, added 23 new consensus tests
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` — Status updated to review
-- `_bmad-output/implementation-artifacts/2-3-council-consensus-synthesis.md` — Tasks marked complete, Dev Agent Record filled
+- `src/aicouncil/council/schemas.py` — Added 6 consensus schemas, `domains` field on `AgentAssignment`, `consensus` field on `OrchestrationData`, `field_validator` on `TopicClassification.domain_scores`
+- `src/aicouncil/council/assembler.py` — Added 6 private consensus builder methods, case-normalised domain weight computation, empty-state guards, Tier 2 threshold fix, `_build_orchestration_notes` domains fallback
+- `tests/test_council.py` — Added `_minimal_consensus_data()` helper, `ValidationError` import, 25 new consensus tests (including builder content and edge case fixes)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — Status updated to done
+- `_bmad-output/implementation-artifacts/2-3-council-consensus-synthesis.md` — Tasks marked complete, Dev Agent Record filled, CR fixes documented
