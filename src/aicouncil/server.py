@@ -3,6 +3,7 @@ AI Council - MCP server entry point.
 
 Multi-model deliberation MCP server routing through OpenRouter.
 Server.py is a thin registry — all tool logic lives in tools/ modules.
+# v0.0.2 - release pipeline validated
 """
 
 import logging
