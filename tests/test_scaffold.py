@@ -59,11 +59,14 @@ class TestEnsureScaffold:
         assert history_dir.is_dir()
         assert list(history_dir.iterdir()) == []
 
-    def test_creates_empty_agents_dir(self, tmp_path):
+    def test_creates_agents_dir_with_template(self, tmp_path):
         ensure_scaffold(project_root=tmp_path)
         agents_dir = tmp_path / ".aicouncil" / "agents"
         assert agents_dir.is_dir()
-        assert list(agents_dir.iterdir()) == []
+        template = agents_dir / "template-agent.md"
+        assert template.exists()
+        content = template.read_text()
+        assert "include_flag: false" in content
 
     def test_returns_aicouncil_path(self, tmp_path):
         result = ensure_scaffold(project_root=tmp_path)

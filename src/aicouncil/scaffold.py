@@ -77,6 +77,14 @@ def ensure_scaffold(project_root: Path | None = None) -> Path:
         agents_dir.mkdir()
         logger.debug(f"Created directory: {agents_dir}")
 
+    # Copy agent template (only if missing)
+    template_dest = agents_dir / "template-agent.md"
+    if not template_dest.exists():
+        template_ref = resources.files("aicouncil.defaults") / "template-agent.md"
+        with resources.as_file(template_ref) as template_path:
+            shutil.copy2(template_path, template_dest)
+        logger.debug(f"Copied agent template to: {template_dest}")
+
     knowledge_dir = aicouncil_dir / "knowledge"
     if not knowledge_dir.exists():
         knowledge_dir.mkdir()

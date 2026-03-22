@@ -229,13 +229,15 @@ class CouncilAssembler:
         if count <= 0:
             return []
 
-        # Filter available agents
-        available = [a for a in roster.agents if a.name.lower() not in exclude_names]
+        # Filter available agents — exclude_flag: false agents are never eligible
+        available = [
+            a
+            for a in roster.agents
+            if a.name.lower() not in exclude_names and a.include_flag
+        ]
 
-        # Filter user agents based on include_flag
-        if include_user_agents:
-            available = [a for a in available if a.type != "user" or a.include_flag]
-        else:
+        # Filter user-type agents if not requested
+        if not include_user_agents:
             available = [a for a in available if a.type != "user"]
 
         if not available:
