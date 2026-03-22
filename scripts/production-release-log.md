@@ -11,6 +11,7 @@
 
 | Version | Date | Branch | PR | Status | Notes |
 |---------|------|--------|-----|--------|-------|
+| v0.0.4 | 2026-03-22 | release/v0.0.4 | #4 | pending | |
 | v0.0.3 | 2026-03-22 | release/v0.0.3 | #3 | pending | |
 | v0.0.2 | 2026-03-22 | release/v0.0.2 | #2 | pending | |
 | v0.0.1 | 2026-03-22 | release/v0.0.1 | #1 | merged | |
