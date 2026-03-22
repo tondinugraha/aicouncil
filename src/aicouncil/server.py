@@ -33,7 +33,19 @@ logger = logging.getLogger(__name__)
 # Initialize FastMCP server
 mcp = FastMCP(
     "aicouncil",
-    instructions="AI partner for brainstorming, critique, and validation",
+    instructions=(
+        "AI partner for brainstorming, critique, and validation.\n\n"
+        "## Council Deliberation Rules\n"
+        "When orchestrating council deliberations (ai_council + council_speak):\n"
+        "- After each council_speak call, display the agent's response VERBATIM. "
+        "Never summarize, paraphrase, shorten, or editorialize the response.\n"
+        "- Format: **Agent Name** (model):\\n\\n[exact response text, unchanged]"
+        "\\n\\n**Stance:** [stance text]\n"
+        "- Add your own commentary or synthesis ONLY after all agents in a round "
+        "have spoken, as a separate block.\n"
+        "- Drive multiple deliberation rounds, highlight agreements and "
+        "disagreements, and present a final verdict table."
+    ),
 )
 
 # ============================================================================

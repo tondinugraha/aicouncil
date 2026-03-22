@@ -157,6 +157,11 @@ async def council_speak(
     the prompt to the agent's assigned model. The response is appended
     to the session's conversation history for subsequent calls.
 
+    DISPLAY RULE: The host AI MUST display the agent's `response` field
+    VERBATIM after each call — never summarize, paraphrase, or shorten it.
+    Format as: **Agent Name** (model):\\n\\n[exact response text, unchanged]
+    \\n\\n**Stance:** [stance text].
+
     Args:
         session_id: Council session UUID from ai_council assembly.
         agent_name: Name of the agent to speak (must match assembly).
