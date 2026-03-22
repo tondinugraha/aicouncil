@@ -157,6 +157,11 @@ async def council_speak(
     the prompt to the agent's assigned model. The response is appended
     to the session's conversation history for subsequent calls.
 
+    SEQUENTIAL RULE: The host AI MUST call council_speak ONE AGENT AT A
+    TIME. NEVER call multiple council_speak in parallel. Wait for each
+    agent's response before calling the next. This applies to ALL rounds
+    including Round 1 — each agent builds on the previous speakers.
+
     DISPLAY RULE: The host AI MUST display the agent's `response` field
     VERBATIM after each call — never summarize, paraphrase, or shorten it.
     Format as: **Agent Name** (model):\\n\\n[exact response text, unchanged]
