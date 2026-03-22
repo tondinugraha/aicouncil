@@ -9,6 +9,7 @@
 > - Install: `uvx --from git+https://github.com/tondinugraha/aicouncil aicouncil`
 > - Or: `pip install git+https://github.com/tondinugraha/aicouncil@main`
 
+| v0.0.2 | 2026-03-22 | release/v0.0.2 | #2 | pending | |
 | Version | Date | Branch | PR | Status | Notes |
 |---------|------|--------|-----|--------|-------|
 | v0.0.1 | 2026-03-22 | release/v0.0.1 | #1 | pending | |
