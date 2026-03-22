@@ -201,9 +201,22 @@ class AddendumMetadata(BaseModel):
 
     session_id: str = Field(description="Council session UUID")
     topic: str = Field(description="Original topic provided by user")
-    agents: list[str] = Field(description="Agent names that participated")
+    agents: list[str] = Field(min_length=1, description="Agent names that participated")
     model_assignments: dict[str, str] = Field(description="Mapping of agent name to assigned model")
     timestamp: str = Field(description="ISO 8601 timestamp of council completion")
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp_format(cls, v: str) -> str:
+        """Ensure timestamp is valid ISO 8601."""
+        from datetime import datetime
+
+        try:
+            datetime.fromisoformat(v)
+        except (ValueError, TypeError) as e:
+            msg = f"timestamp must be valid ISO 8601, got: {v!r}"
+            raise ValueError(msg) from e
+        return v
 
 
 class AddendumSaveResult(BaseModel):

@@ -1,6 +1,6 @@
 # Story 2.4: Council History & Output
 
-Status: review
+Status: done
 
 ## Story
 
@@ -483,17 +483,40 @@ None — clean implementation, no blockers encountered.
 - Task 4: Created `tests/test_history.py` with 36 tests covering slugify, filename generation, markdown formatting, atomic writes, duplicate disambiguation, error wrapping, schema validation, and MCP tool return type.
 - Task 5: Ruff format + check clean. 322 total tests pass (286 existing + 36 new). Zero regressions.
 
+### CR 2-4 Fixes (Code Review Pass)
+
+All 14 findings addressed (9 patch, 3 defer reclassified as fix, 2 intent gaps):
+
+- **P-1 YAML injection:** Added `_yaml_escape()` helper — all frontmatter values double-quoted with `"`, `\`, `\n` escaped
+- **P-2 Unbounded loop:** Replaced `_disambiguate_path` with `_atomic_link_with_disambiguation` capped at `MAX_DISAMBIGUATE_ATTEMPTS=100`
+- **P-3 Timestamp validation:** Added `field_validator("timestamp")` on `AddendumMetadata` — rejects non-ISO strings at schema level; removed silent `datetime.now()` fallback
+- **P-4 Temp file leak:** Moved cleanup to `finally` block — cleans up on any exception type
+- **P-5 Empty agents:** Added `min_length=1` on `AddendumMetadata.agents`
+- **P-6 Missing INFO start log:** Added `logger.info("Saving addendum to…")` at top of `write_council_addendum`
+- **P-7 Missing WARNING for dir:** Check `history_dir.exists()` before `mkdir`, log WARNING if missing
+- **P-8 Slug fallback silent:** `_generate_filename` logs WARNING when empty slug falls back to `council-session`
+- **P-9 Test writes to cwd:** `test_end_to_end_file_creation` now patches `Path.cwd()` → `tmp_path`
+- **D-1 TOCTOU race:** Replaced check-then-rename with `os.link()` atomic create — fails with `FileExistsError` if target exists, eliminating race window
+- **D-2 Absolute path exposed:** Tool converts to relative via `file_path.relative_to(project_root)` before returning
+- **D-3 Content size limit:** `MAX_ADDENDUM_CONTENT_BYTES = 1MB` enforced in tool before writing
+- **IG-1 Content `---` confusion:** Added `## Council Deliberation` section heading for clear structural separation
+- **IG-2 Narrative format:** Added model assignments table + section heading in human-readable body per AC3
+
+Test count: 347 total (286 existing + 61 new). Zero regressions.
+
 ### Change Log
 
 - 2026-03-22: Story 2.4 implemented — council history output boundary module, save_council_addendum MCP tool, 36 new tests
+- 2026-03-22: CR 2-4 — fixed all 14 review findings (YAML injection, TOCTOU race, timestamp validation, temp file cleanup, schema constraints, logging, relative paths, content size limit, narrative format). Tests grew from 36 to 61.
 
 ### File List
 
-- `src/aicouncil/council/schemas.py` — MODIFIED (added AddendumMetadata, AddendumSaveResult)
-- `src/aicouncil/council/history.py` — NEW (sole file output boundary for council history)
+- `src/aicouncil/council/schemas.py` — MODIFIED (AddendumMetadata, AddendumSaveResult, timestamp validator, min_length agents)
+- `src/aicouncil/council/history.py` — NEW (sole file output boundary: _yaml_escape, _slugify_topic, _generate_filename, _format_addendum_markdown, _atomic_link_with_disambiguation, write_council_addendum)
 - `src/aicouncil/council/__init__.py` — MODIFIED (export write_council_addendum)
-- `src/aicouncil/tools/council.py` — MODIFIED (added save_council_addendum tool)
+- `src/aicouncil/tools/council.py` — MODIFIED (save_council_addendum tool, relative path, content size limit)
 - `src/aicouncil/server.py` — MODIFIED (registered save_council_addendum)
-- `tests/test_history.py` — NEW (36 tests for history module)
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED (status update)
+- `src/aicouncil/council/assembler.py` — MODIFIED (ruff format only, no logic changes)
+- `tests/test_history.py` — NEW (61 tests for history module)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — MODIFIED (status: done)
 - `_bmad-output/implementation-artifacts/2-4-council-history-output.md` — MODIFIED (story file updates)

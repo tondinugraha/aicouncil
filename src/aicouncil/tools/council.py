@@ -3,6 +3,7 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -24,6 +25,8 @@ from aicouncil.council.schemas import (
 from aicouncil.exceptions import AiCouncilError, CouncilError
 
 logger = logging.getLogger(__name__)
+
+MAX_ADDENDUM_CONTENT_BYTES = 1_048_576  # 1 MB
 
 
 async def ai_council(
@@ -148,6 +151,13 @@ async def save_council_addendum(
     logger.info("[council:%s] Saving addendum to history", session_id)
 
     try:
+        content_size = len(addendum_content.encode("utf-8"))
+        if content_size > MAX_ADDENDUM_CONTENT_BYTES:
+            raise CouncilError(
+                f"Addendum content exceeds maximum size: {content_size} bytes "
+                f"(limit: {MAX_ADDENDUM_CONTENT_BYTES} bytes)"
+            )
+
         timestamp = datetime.now(tz=UTC).isoformat()
         metadata = AddendumMetadata(
             session_id=session_id,
@@ -157,12 +167,14 @@ async def save_council_addendum(
             timestamp=timestamp,
         )
 
-        file_path = write_council_addendum(metadata, addendum_content)
+        project_root = Path.cwd()
+        file_path = write_council_addendum(metadata, addendum_content, project_root=project_root)
+        relative_path = file_path.relative_to(project_root)
 
-        logger.info("[council:%s] Addendum saved to %s", session_id, file_path)
+        logger.info("[council:%s] Addendum saved to %s", session_id, relative_path)
 
         return AddendumSaveResult(
-            file_path=str(file_path),
+            file_path=str(relative_path),
             addendum_content=addendum_content,
             metadata=metadata,
         )
