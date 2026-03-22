@@ -200,6 +200,63 @@ def build_research_prompt(
     return f"{BasePrompts.SYSTEM_PERSONA}\n\n{prompt}"
 
 
+def build_council_speak_prompt(
+    agent_persona: str,
+    topic: str,
+    round_number: int,
+    conversation_history: list[dict[str, str]] | None = None,
+    instruction: str = "",
+) -> str:
+    """Build a prompt for an agent to speak in a council deliberation round.
+
+    The agent persona IS the system prompt — no generic SYSTEM_PERSONA overlay.
+    """
+    history_section = ""
+    if conversation_history:
+        history_lines = []
+        for entry in conversation_history:
+            name = entry.get("agent_name", "Unknown")
+            role = entry.get("agent_role", "")
+            text = entry.get("response", "")
+            history_lines.append(f"**{name}** ({role}):\n{text}")
+        history_section = "## What other council members have said so far\n\n" + "\n\n---\n\n".join(
+            history_lines
+        )
+
+    instruction_section = ""
+    if instruction:
+        instruction_section = f"\n\n## Chairperson instruction for this round\n\n{instruction}"
+
+    prompt = f"""You are participating in a multi-agent council deliberation.
+
+## Topic
+{topic}
+
+## Round {round_number}
+
+{history_section}{instruction_section}
+
+## Your task
+
+Respond to the topic (and to what other agents have said, if any)
+**in character** as your persona. Be direct, opinionated, and
+substantive. Do not hedge excessively. Engage with specific points
+from other agents when relevant — agree, disagree, or build on
+their arguments.
+
+Keep your response concise (2-4 paragraphs). Speak naturally in
+your persona's voice and communication style.
+
+Respond with a JSON object containing:
+- "response": your full natural language response (2-4 paragraphs, in character)
+- "stance": a one-line summary of your position (e.g., "Strongly in favor with caveats on security")
+- "key_points": a list of 2-5 key points from your response
+"""
+
+    # Use the agent persona as the system prompt
+    return f"{agent_persona}\n\n{prompt}"
+
+
 def build_document_research_prompt(
     focus_areas: list[str] | None = None,
     research_depth: str = "thorough",

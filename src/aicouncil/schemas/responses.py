@@ -270,6 +270,27 @@ class RecallResult(BaseModel):
 # ============================================================================
 
 
+# ============================================================================
+# Council Deliberation Response Models
+# ============================================================================
+
+
+class CouncilSpeakResult(BaseModel):
+    """Response from a single agent speaking in a council deliberation round."""
+
+    agent_name: str = Field(description="Name of the speaking agent")
+    agent_role: str = Field(description="Role title of the speaking agent")
+    model: str = Field(description="Model that generated this response")
+    response: str = Field(description="Full natural language response in the agent's voice")
+    stance: str = Field(
+        description="One-line stance summary (e.g., 'Cautiously in favor with security concerns')"
+    )
+    key_points: list[str] = Field(
+        default_factory=list,
+        description="2-5 extractable key points from the response",
+    )
+
+
 class DocumentInsight(BaseModel):
     """A key insight extracted from the document."""
 

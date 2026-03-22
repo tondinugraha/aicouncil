@@ -18,7 +18,7 @@ from aicouncil.tools.analysis import (
     validate,
 )
 from aicouncil.tools.codebase import analyze_dependencies, critique_file, scan_codebase
-from aicouncil.tools.council import ai_council, save_council_addendum
+from aicouncil.tools.council import ai_council, council_speak, save_council_addendum
 from aicouncil.tools.memory import forget, recall, remember, show_knowledge_summary
 from aicouncil.tools.research import research_assist, research_document
 
@@ -41,6 +41,7 @@ mcp = FastMCP(
 
 # Council tools
 mcp.tool()(ai_council)
+mcp.tool()(council_speak)
 mcp.tool()(save_council_addendum)
 
 # Analysis tools

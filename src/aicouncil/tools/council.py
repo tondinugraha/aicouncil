@@ -1,4 +1,4 @@
-"""Council tools — ai_council and save_council_addendum MCP tools."""
+"""Council tools — ai_council, council_speak, and save_council_addendum MCP tools."""
 
 import logging
 import uuid
@@ -14,6 +14,7 @@ from aicouncil.council.assembler import (
     build_classification_prompt,
     extract_available_domains,
 )
+from aicouncil.council.context import build_context_managed_history
 from aicouncil.council.history import write_council_addendum
 from aicouncil.council.schemas import (
     AddendumMetadata,
@@ -21,8 +22,15 @@ from aicouncil.council.schemas import (
     CouncilAssemblyResult,
     TopicClassification,
 )
+from aicouncil.council.session import (
+    ConversationEntry,
+    get_session,
+    store_session,
+)
 from aicouncil.exceptions import AiCouncilError, CouncilError
 from aicouncil.roots import get_project_root
+from aicouncil.schemas.responses import CouncilSpeakResult
+from aicouncil.tools import build_council_speak_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +50,9 @@ async def ai_council(
     Classifies the topic, selects relevant agents from the roster,
     assigns models using capability-weighted routing, and returns
     everything the host AI needs to orchestrate the deliberation.
+
+    The assembly result is cached server-side so that subsequent
+    council_speak calls only need session_id and agent_name.
 
     Args:
         topic: The question or topic for the council to deliberate.
@@ -112,10 +123,15 @@ async def ai_council(
             "[council:%s] Council assembled: %d agents", session_id, len(composition.assignments)
         )
 
-        return CouncilAssemblyResult(
+        result = CouncilAssemblyResult(
             composition=composition,
             orchestration=orchestration,
         )
+
+        # Step 5: Cache session for council_speak
+        store_session(session_id, result)
+
+        return result
 
     except CouncilError as e:
         logger.error("[council:%s] Council error: %s", session_id, e)
@@ -128,29 +144,129 @@ async def ai_council(
         raise CouncilError(f"Council assembly error: {e}") from e
 
 
+async def council_speak(
+    session_id: str,
+    agent_name: str,
+    instruction: str = "",
+) -> CouncilSpeakResult:
+    """Have a single council agent speak in a deliberation round.
+
+    Looks up the agent's persona and model from the cached session,
+    includes the full conversation history automatically, and sends
+    the prompt to the agent's assigned model. The response is appended
+    to the session's conversation history for subsequent calls.
+
+    Args:
+        session_id: Council session UUID from ai_council assembly.
+        agent_name: Name of the agent to speak (must match assembly).
+        instruction: Optional chairperson instruction for this turn
+            (e.g., 'play devil advocate', 'respond to the Architect').
+    """
+    session = get_session(session_id)
+    agent = session.get_agent(agent_name)
+    round_number = session.current_round
+
+    log_prefix = f"[council:{session_id}]"
+    logger.info(
+        "%s Agent '%s' speaking (round %d, model %s)",
+        log_prefix,
+        agent_name,
+        round_number,
+        agent.assigned_model,
+    )
+
+    try:
+        config = get_config()
+
+        # Context window management: summarize older rounds if history is too large
+        managed_history = build_context_managed_history(
+            entries=session.conversation_history,
+            agent_persona=agent.persona,
+            context_window=agent.context_window,
+            max_output_tokens=config.max_output_tokens,
+        )
+
+        prompt = build_council_speak_prompt(
+            agent_persona=agent.persona,
+            topic=session.topic,
+            round_number=round_number,
+            conversation_history=managed_history,
+            instruction=instruction,
+        )
+
+        async with OpenRouterClient(model=agent.assigned_model, config=config) as client:
+            result = await client.generate(
+                prompt,
+                response_model=CouncilSpeakResult,
+                model=agent.assigned_model,
+            )
+
+        if isinstance(result, CouncilSpeakResult):
+            # Stamp metadata from session (not the LLM's guesses)
+            result.agent_name = agent.agent_name
+            result.agent_role = agent.agent_role
+            result.model = agent.assigned_model
+
+            # Auto-append to session history
+            session.add_response(
+                ConversationEntry(
+                    agent_name=agent.agent_name,
+                    agent_role=agent.agent_role,
+                    model=agent.assigned_model,
+                    round_number=round_number,
+                    response=result.response,
+                    stance=result.stance,
+                    key_points=result.key_points,
+                )
+            )
+
+            logger.info(
+                "%s Agent '%s' responded: stance='%s'",
+                log_prefix,
+                agent_name,
+                result.stance[:80],
+            )
+            return result
+
+        # Fallback: LLM returned something unexpected
+        logger.warning("%s Agent '%s' returned non-structured response", log_prefix, agent_name)
+        return CouncilSpeakResult(
+            agent_name=agent.agent_name,
+            agent_role=agent.agent_role,
+            model=agent.assigned_model,
+            response=str(result) if result else "Agent failed to respond.",
+            stance="unclear",
+            key_points=[],
+        )
+
+    except CouncilError:
+        raise
+    except AiCouncilError as e:
+        logger.error("%s Agent '%s' failed: %s", log_prefix, agent_name, e)
+        raise CouncilError(f"Agent '{agent_name}' failed to respond: {e}") from e
+    except (ValidationError, TypeError, KeyError, ValueError) as e:
+        logger.error("%s Agent '%s' unexpected error: %s", log_prefix, agent_name, e)
+        raise CouncilError(f"Agent '{agent_name}' response error: {e}") from e
+
+
 async def save_council_addendum(
     session_id: str,
-    topic: str,
-    agents: list[str],
-    model_assignments: dict[str, str],
     addendum_content: str,
 ) -> AddendumSaveResult:
     """Save a council addendum as a timestamped markdown file and return it for inline display.
 
-    Call this tool after conducting the council deliberation and synthesizing
-    the addendum narrative. The addendum content should be the full narrative
-    following the guidance in orchestration.consensus.addendum.
+    Pulls topic, agents, and model assignments from the cached session —
+    only session_id and the addendum narrative are needed.
 
     Args:
         session_id: Council session UUID from the assembly result.
-        topic: The original topic provided by the user.
-        agents: Agent names that participated in deliberation.
-        model_assignments: Mapping of agent name to assigned model.
         addendum_content: Full addendum narrative written by the host AI.
     """
     logger.info("[council:%s] Saving addendum to history", session_id)
 
     try:
+        session = get_session(session_id)
+
         content_size = len(addendum_content.encode("utf-8"))
         if content_size > MAX_ADDENDUM_CONTENT_BYTES:
             raise CouncilError(
@@ -158,10 +274,16 @@ async def save_council_addendum(
                 f"(limit: {MAX_ADDENDUM_CONTENT_BYTES} bytes)"
             )
 
+        # Extract metadata from cached session
+        agents = [a.agent_name for a in session.assembly.composition.assignments]
+        model_assignments = {
+            a.agent_name: a.assigned_model for a in session.assembly.composition.assignments
+        }
+
         timestamp = datetime.now(tz=UTC).isoformat()
         metadata = AddendumMetadata(
             session_id=session_id,
-            topic=topic,
+            topic=session.topic,
             agents=agents,
             model_assignments=model_assignments,
             timestamp=timestamp,

@@ -16,8 +16,106 @@ from aicouncil.council.history import (
     _yaml_escape,
     write_council_addendum,
 )
-from aicouncil.council.schemas import AddendumMetadata, AddendumSaveResult
+from aicouncil.council.schemas import (
+    AddendumMetadata,
+    AddendumSaveResult,
+    AddendumGuidance,
+    AgentAssignment,
+    ChairpersonInstructions,
+    ConsensusAndSynthesisData,
+    ConsensusRoundGuidance,
+    ConvergenceGuidance,
+    CouncilAssemblyResult,
+    CouncilComposition,
+    DeadlockResolutionGuidance,
+    OrchestrationData,
+    TieredConsensusGuidance,
+    ToneGuidance,
+    TopicClassification,
+)
+from aicouncil.council.session import clear_all_sessions, store_session
 from aicouncil.exceptions import CouncilError
+
+
+def _build_assembly(
+    session_id: str,
+    topic: str,
+    agents: list[str],
+    model_assignments: dict[str, str],
+) -> CouncilAssemblyResult:
+    """Build a minimal CouncilAssemblyResult for test session caching."""
+    assignments = [
+        AgentAssignment(
+            agent_name=name,
+            agent_role="Test Role",
+            agent_type="expert",
+            agent_tier=1,
+            domains=["testing"],
+            assigned_model=model_assignments[name],
+            assignment_reasoning="test",
+            persona="Test persona",
+        )
+        for name in agents
+    ]
+    classification = TopicClassification(
+        topic=topic,
+        domains=["testing"],
+        domain_scores={"testing": 1.0},
+        reasoning="test",
+    )
+    composition = CouncilComposition(
+        session_id=session_id,
+        topic=topic,
+        classification=classification,
+        assignments=assignments,
+        council_size=len(agents),
+        diversity_metrics={},
+    )
+    orchestration = OrchestrationData(
+        chairperson=ChairpersonInstructions(
+            speaking_order="n/a",
+            debate_triggers="n/a",
+            conclusion_driving="n/a",
+            topic_framing="n/a",
+        ),
+        tone=ToneGuidance(
+            default_tone="n/a",
+            adversarial_triggers="n/a",
+            agreement_triggers="n/a",
+            tone_shift_rules="n/a",
+        ),
+        convergence=ConvergenceGuidance(
+            evaluation_criteria="n/a",
+            continue_signals="n/a",
+            consensus_signals="n/a",
+            no_fixed_rounds="n/a",
+        ),
+        consensus=ConsensusAndSynthesisData(
+            consensus_round=ConsensusRoundGuidance(
+                format_instructions="n/a",
+                unanimity_goal="n/a",
+                dissent_handling="n/a",
+            ),
+            deadlock_resolution=DeadlockResolutionGuidance(
+                resolution_rules="n/a",
+                transparency_rules="n/a",
+                agent_weights=[],
+            ),
+            tiered_consensus=TieredConsensusGuidance(
+                tier_definitions="n/a",
+                escalation_rules="n/a",
+            ),
+            addendum=AddendumGuidance(
+                structure="n/a",
+                detail_preservation_rules="n/a",
+                dissent_inclusion_rules="n/a",
+            ),
+        ),
+        context_windows=[],
+        agent_count=len(agents),
+        summary="test",
+    )
+    return CouncilAssemblyResult(composition=composition, orchestration=orchestration)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -470,9 +568,24 @@ class TestAddendumSaveResult:
 
 
 class TestSaveCouncilAddendumTool:
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        """Clean up session cache before and after each test."""
+        clear_all_sessions()
+        yield
+        clear_all_sessions()
+
     @pytest.mark.asyncio
     async def test_returns_addendum_save_result(self, tmp_path):
         from aicouncil.tools.council import save_council_addendum
+
+        assembly = _build_assembly(
+            session_id="tool-test-123",
+            topic="Test Topic",
+            agents=["Agent A", "Agent B"],
+            model_assignments={"Agent A": "model-a", "Agent B": "model-b"},
+        )
+        store_session("tool-test-123", assembly)
 
         with patch("aicouncil.tools.council.write_council_addendum") as mock_write:
             mock_write.return_value = tmp_path / ".aicouncil" / "history" / "2026-03-22-test.md"
@@ -480,9 +593,6 @@ class TestSaveCouncilAddendumTool:
             with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
                 result = await save_council_addendum(
                     session_id="tool-test-123",
-                    topic="Test Topic",
-                    agents=["Agent A", "Agent B"],
-                    model_assignments={"Agent A": "model-a", "Agent B": "model-b"},
                     addendum_content="The council decided X.",
                 )
 
@@ -496,12 +606,17 @@ class TestSaveCouncilAddendumTool:
     async def test_end_to_end_file_creation(self, tmp_path):
         from aicouncil.tools.council import save_council_addendum
 
+        assembly = _build_assembly(
+            session_id="e2e-test",
+            topic="End to End Test",
+            agents=["Agent A"],
+            model_assignments={"Agent A": "model-a"},
+        )
+        store_session("e2e-test", assembly)
+
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             result = await save_council_addendum(
                 session_id="e2e-test",
-                topic="End to End Test",
-                agents=["Agent A"],
-                model_assignments={"Agent A": "model-a"},
                 addendum_content="Full narrative content.",
             )
 
@@ -514,12 +629,17 @@ class TestSaveCouncilAddendumTool:
     async def test_returns_relative_path(self, tmp_path):
         from aicouncil.tools.council import save_council_addendum
 
+        assembly = _build_assembly(
+            session_id="path-test",
+            topic="Path Test",
+            agents=["Agent A"],
+            model_assignments={"Agent A": "model-a"},
+        )
+        store_session("path-test", assembly)
+
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             result = await save_council_addendum(
                 session_id="path-test",
-                topic="Path Test",
-                agents=["Agent A"],
-                model_assignments={"Agent A": "model-a"},
                 addendum_content="Content.",
             )
 
@@ -530,11 +650,16 @@ class TestSaveCouncilAddendumTool:
     async def test_content_size_limit(self):
         from aicouncil.tools.council import MAX_ADDENDUM_CONTENT_BYTES, save_council_addendum
 
+        assembly = _build_assembly(
+            session_id="size-test",
+            topic="Size Test",
+            agents=["Agent A"],
+            model_assignments={"Agent A": "model-a"},
+        )
+        store_session("size-test", assembly)
+
         with pytest.raises(CouncilError, match="exceeds maximum size"):
             await save_council_addendum(
                 session_id="size-test",
-                topic="Size Test",
-                agents=["Agent A"],
-                model_assignments={"Agent A": "model-a"},
                 addendum_content="x" * (MAX_ADDENDUM_CONTENT_BYTES + 1),
             )

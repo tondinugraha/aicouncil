@@ -27,6 +27,7 @@ from aicouncil.council.schemas import (
     OrchestrationData,
     TopicClassification,
 )
+from aicouncil.council.session import clear_all_sessions, store_session
 from aicouncil.exceptions import (
     CouncilError,
     ModelUnavailableError,
@@ -185,6 +186,113 @@ def _assert_session_uuid_in_logs(caplog_records: list[logging.LogRecord]) -> Non
     pytest.fail("No log record contains a session UUID in [council:<uuid>] format")
 
 
+@pytest.fixture(autouse=True)
+def _clean_sessions():
+    """Clear the session store before and after every test."""
+    clear_all_sessions()
+    yield
+    clear_all_sessions()
+
+
+def _store_dummy_session(session_id: str) -> None:
+    """Create a minimal cached session for tests that bypass ai_council()."""
+    from aicouncil.council.schemas import (
+        AddendumGuidance,
+        AgentAssignment,
+        AgentDomainWeight,
+        ChairpersonInstructions,
+        ConsensusAndSynthesisData,
+        ConsensusRoundGuidance,
+        ContextWindowInfo,
+        ConvergenceGuidance,
+        CouncilComposition,
+        DeadlockResolutionGuidance,
+        OrchestrationData,
+        TieredConsensusGuidance,
+        ToneGuidance,
+        TopicClassification,
+    )
+
+    assembly = CouncilAssemblyResult(
+        composition=CouncilComposition(
+            session_id=session_id,
+            topic="Test",
+            classification=TopicClassification(
+                topic="Test",
+                domains=["coding"],
+                domain_scores={"coding": 0.8},
+                reasoning="Test classification.",
+            ),
+            assignments=[
+                AgentAssignment(
+                    agent_name="Agent1",
+                    agent_role="Tester",
+                    agent_type="expert",
+                    agent_tier=1,
+                    domains=["coding"],
+                    assigned_model="model-a",
+                    assignment_reasoning="Test assignment.",
+                    persona="I test things.",
+                )
+            ],
+            council_size=1,
+            diversity_metrics={"type_mix": {"expert": 1}},
+        ),
+        orchestration=OrchestrationData(
+            chairperson=ChairpersonInstructions(
+                speaking_order="Sequential.",
+                debate_triggers="None.",
+                conclusion_driving="Summarize.",
+                topic_framing="Test topic.",
+            ),
+            tone=ToneGuidance(
+                default_tone="neutral",
+                adversarial_triggers="None.",
+                agreement_triggers="None.",
+                tone_shift_rules="None.",
+            ),
+            convergence=ConvergenceGuidance(
+                evaluation_criteria="Agreement.",
+                continue_signals="Disagreement.",
+                consensus_signals="All agree.",
+                no_fixed_rounds="Evaluate dynamically.",
+            ),
+            consensus=ConsensusAndSynthesisData(
+                consensus_round=ConsensusRoundGuidance(
+                    format_instructions="One sentence.",
+                    unanimity_goal="Seek agreement.",
+                    dissent_handling="Document dissent.",
+                ),
+                deadlock_resolution=DeadlockResolutionGuidance(
+                    resolution_rules="Use domain weights.",
+                    transparency_rules="Be transparent.",
+                    agent_weights=[
+                        AgentDomainWeight(
+                            agent_name="Agent1",
+                            agent_role="Tester",
+                            relevance_score=0.8,
+                            matched_domains=["coding"],
+                        )
+                    ],
+                ),
+                tiered_consensus=TieredConsensusGuidance(
+                    tier_definitions="All/most/divided.",
+                    escalation_rules="Accept tiered.",
+                ),
+                addendum=AddendumGuidance(
+                    structure="Standard sections.",
+                    detail_preservation_rules="Preserve detail.",
+                    dissent_inclusion_rules="Include dissent.",
+                ),
+            ),
+            context_windows=[ContextWindowInfo(model="model-a", context_window=128000)],
+            agent_count=1,
+            summary="Test council with 1 agent.",
+        ),
+    )
+    store_session(session_id, assembly)
+
+
 # ---------------------------------------------------------------------------
 # Task 1: Full Council Lifecycle (AC: #1, #3)
 # ---------------------------------------------------------------------------
@@ -207,18 +315,12 @@ class TestFullCouncilLifecycle:
 
         # Extract data for save (simulating host AI handoff)
         session_id = result.composition.session_id
-        topic = result.composition.topic
-        agents = [a.agent_name for a in result.composition.assignments]
-        model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
 
         # Save addendum
         addendum_content = "## Consensus\nThe council recommends microservices."
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
-                topic=topic,
-                agents=agents,
-                model_assignments=model_assignments,
                 addendum_content=addendum_content,
             )
 
@@ -249,9 +351,6 @@ class TestFullCouncilLifecycle:
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
-                topic=topic,
-                agents=agents,
-                model_assignments=model_assignments,
                 addendum_content="Deliberation content.",
             )
 
@@ -271,15 +370,10 @@ class TestFullCouncilLifecycle:
             result = await ai_council(topic="Should we adopt microservices?")
 
         session_id = result.composition.session_id
-        agents = [a.agent_name for a in result.composition.assignments]
-        model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
-                topic="Should we adopt microservices?",
-                agents=agents,
-                model_assignments=model_assignments,
                 addendum_content="## Analysis\nDetailed analysis here.",
             )
 
@@ -317,17 +411,10 @@ class TestFullCouncilLifecycle:
 
         for i, result in enumerate([result1, result2]):
             session_id = result.composition.session_id
-            agents = [a.agent_name for a in result.composition.assignments]
-            model_assignments = {
-                a.agent_name: a.assigned_model for a in result.composition.assignments
-            }
 
             with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
                 await save_council_addendum(
                     session_id=session_id,
-                    topic="Should we adopt microservices?",
-                    agents=agents,
-                    model_assignments=model_assignments,
                     addendum_content=f"Deliberation {i + 1}.",
                 )
 
@@ -469,11 +556,6 @@ class TestPydanticResponseValidation:
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=result.composition.session_id,
-                topic=result.composition.topic,
-                agents=[a.agent_name for a in result.composition.assignments],
-                model_assignments={
-                    a.agent_name: a.assigned_model for a in result.composition.assignments
-                },
                 addendum_content="Test content.",
             )
 
@@ -508,11 +590,6 @@ class TestPydanticResponseValidation:
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=result.composition.session_id,
-                topic=result.composition.topic,
-                agents=[a.agent_name for a in result.composition.assignments],
-                model_assignments={
-                    a.agent_name: a.assigned_model for a in result.composition.assignments
-                },
                 addendum_content="Test content for metadata validation.",
             )
 
@@ -629,14 +706,13 @@ class TestErrorHandlingPipeline:
     async def test_oversized_addendum_raises_council_error(self, tmp_path):
         """Addendum content > 1MB -> CouncilError('exceeds maximum size')."""
         oversized = "x" * (MAX_ADDENDUM_CONTENT_BYTES + 1)
+        sid = str(uuid.uuid4())
+        _store_dummy_session(sid)
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             with pytest.raises(CouncilError, match="exceeds maximum size"):
                 await save_council_addendum(
-                    session_id=str(uuid.uuid4()),
-                    topic="Test",
-                    agents=["Agent1"],
-                    model_assignments={"Agent1": "model-a"},
+                    session_id=sid,
                     addendum_content=oversized,
                 )
 
@@ -645,27 +721,26 @@ class TestErrorHandlingPipeline:
         """Addendum with multibyte chars exceeding 1MB byte limit is rejected."""
         # Each \u00e9 is 2 bytes in UTF-8; half the byte limit + 1 chars exceeds it
         oversized = "\u00e9" * (MAX_ADDENDUM_CONTENT_BYTES // 2 + 1)
+        sid = str(uuid.uuid4())
+        _store_dummy_session(sid)
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             with pytest.raises(CouncilError, match="exceeds maximum size"):
                 await save_council_addendum(
-                    session_id=str(uuid.uuid4()),
-                    topic="Test",
-                    agents=["Agent1"],
-                    model_assignments={"Agent1": "model-a"},
+                    session_id=sid,
                     addendum_content=oversized,
                 )
 
     @pytest.mark.asyncio
     async def test_file_io_failure_raises_council_error(self):
         """File I/O failure -> CouncilError (wrapped OSError)."""
+        sid = str(uuid.uuid4())
+        _store_dummy_session(sid)
+
         with patch("aicouncil.tools.council.get_project_root", return_value=Path("/nonexistent/path")):
             with pytest.raises(CouncilError):
                 await save_council_addendum(
-                    session_id=str(uuid.uuid4()),
-                    topic="Test",
-                    agents=["Agent1"],
-                    model_assignments={"Agent1": "model-a"},
+                    session_id=sid,
                     addendum_content="Content.",
                 )
 
@@ -826,17 +901,10 @@ class TestNFRValidation:
         assert isinstance(assembly_result, BaseModel)
 
         session_id = assembly_result.composition.session_id
-        agents = [a.agent_name for a in assembly_result.composition.assignments]
-        model_assignments = {
-            a.agent_name: a.assigned_model for a in assembly_result.composition.assignments
-        }
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
-                topic="Should we adopt microservices?",
-                agents=agents,
-                model_assignments=model_assignments,
                 addendum_content="Test.",
             )
 
@@ -854,15 +922,9 @@ class TestNFRValidation:
         # Verify it's a valid UUID
         uuid.UUID(session_id)
 
-        agents = [a.agent_name for a in result.composition.assignments]
-        model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
-
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
                 session_id=session_id,
-                topic="Should we adopt microservices?",
-                agents=agents,
-                model_assignments=model_assignments,
                 addendum_content="Test.",
             )
 
