@@ -10,6 +10,7 @@ File I/O uses tmp_path — no writing to real project directories.
 
 import ast
 import logging
+import re
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 
 from aicouncil.config import CapabilityWeight, Config
 from aicouncil.council.schemas import (
+    AddendumMetadata,
     AddendumSaveResult,
     CouncilAssemblyResult,
     CouncilComposition,
@@ -36,6 +38,12 @@ from aicouncil.tools.council import (
     ai_council,
     save_council_addendum,
 )
+
+# Project root for anchoring static analysis paths
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+# UUID regex pattern for log assertions
+_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 # ---------------------------------------------------------------------------
 # Shared Fixtures
@@ -158,7 +166,7 @@ def council_patches(integration_config, integration_roster, mock_classification)
     mock_client = AsyncMock()
     mock_client.generate = AsyncMock(return_value=mock_classification)
     mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
 
     patches = {
         "config": patch("aicouncil.tools.council.get_config", return_value=integration_config),
@@ -166,6 +174,15 @@ def council_patches(integration_config, integration_roster, mock_classification)
         "client": patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
     }
     return patches, mock_client
+
+
+def _assert_session_uuid_in_logs(caplog_records: list[logging.LogRecord]) -> None:
+    """Assert at least one log record contains a valid session UUID in [council:<uuid>] format."""
+    for record in caplog_records:
+        msg = record.getMessage()
+        if "council:" in msg and _UUID_RE.search(msg):
+            return
+    pytest.fail("No log record contains a session UUID in [council:<uuid>] format")
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +224,7 @@ class TestFullCouncilLifecycle:
 
         assert isinstance(save_result, AddendumSaveResult)
         assert save_result.metadata.session_id == session_id
+        assert not Path(save_result.file_path).is_absolute(), "file_path must be relative"
 
         # Verify file on disk
         file_path = tmp_path / save_result.file_path
@@ -242,6 +260,7 @@ class TestFullCouncilLifecycle:
         assert save_result.metadata.topic == topic
         assert save_result.metadata.agents == agents
         assert save_result.metadata.model_assignments == model_assignments
+        assert not Path(save_result.file_path).is_absolute(), "file_path must be relative"
 
     @pytest.mark.asyncio
     async def test_file_content_self_contained_markdown(self, council_patches, tmp_path):
@@ -267,16 +286,20 @@ class TestFullCouncilLifecycle:
         file_path = tmp_path / save_result.file_path
         content = file_path.read_text()
 
-        # YAML frontmatter present
+        # YAML frontmatter: must start with --- and have a closing ---
         assert content.startswith("---\n")
-        assert content.count("---") >= 2
-        assert f'session_id: "{session_id}"' in content
-        assert 'topic: "Should we adopt microservices?"' in content
+        # Find the closing --- fence (second occurrence, within the header block)
+        first_fence_end = content.index("\n", 3) + 1  # past first "---\n"
+        closing_fence_pos = content.index("---", first_fence_end)
+        frontmatter = content[4:closing_fence_pos]
+        assert f'session_id: "{session_id}"' in frontmatter
+        assert 'topic: "Should we adopt microservices?"' in frontmatter
 
-        # Readable narrative
-        assert "# Council Addendum" in content
-        assert "## Council Deliberation" in content
-        assert "Detailed analysis here" in content
+        # Readable narrative (after frontmatter)
+        body = content[closing_fence_pos + 3 :]
+        assert "# Council Addendum" in body
+        assert "## Council Deliberation" in body
+        assert "Detailed analysis here" in body
 
         # Agent model table
         assert "| Agent | Model |" in content
@@ -327,6 +350,11 @@ class TestModelUnavailability:
         """OpenRouterClient retries 2-3x on transient errors before ModelUnavailableError."""
         from aicouncil.client import OpenRouterClient
 
+        # Verify retry_attempts is in spec range 2-3
+        assert 2 <= integration_config.retry_attempts <= 3, (
+            f"retry_attempts must be 2-3, got {integration_config.retry_attempts}"
+        )
+
         mock_response = MagicMock()
         mock_response.status_code = 503
         mock_response.text = "Service unavailable"
@@ -340,12 +368,12 @@ class TestModelUnavailability:
                 with pytest.raises(ModelUnavailableError, match="unavailable after"):
                     await client.generate("test prompt")
 
-                # Default retry_attempts is 3, so 3 calls total
+                # Verify retry count matches configured value (within 2-3 range)
                 assert mock_http.post.call_count == integration_config.retry_attempts
 
     @pytest.mark.asyncio
-    async def test_model_failure_wraps_in_council_error(
-        self, integration_config, integration_roster
+    async def test_model_failure_wraps_in_council_error_with_uuid_log(
+        self, integration_config, integration_roster, caplog
     ):
         """ModelUnavailableError wraps into CouncilError with session UUID in logs."""
         mock_client = AsyncMock()
@@ -353,15 +381,19 @@ class TestModelUnavailability:
             side_effect=ModelUnavailableError("model-alpha unavailable after 3 attempts")
         )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
             patch("aicouncil.tools.council.get_agents", return_value=integration_roster),
             patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
-            pytest.raises(CouncilError, match="Council assembly failed"),
         ):
-            await ai_council(topic="Test topic")
+            with caplog.at_level(logging.DEBUG):
+                with pytest.raises(CouncilError, match="Council assembly failed"):
+                    await ai_council(topic="Test topic")
+
+        # Verify session UUID appears in log entries
+        _assert_session_uuid_in_logs(caplog.records)
 
     @pytest.mark.asyncio
     async def test_classification_failure_structured_error(
@@ -371,7 +403,7 @@ class TestModelUnavailability:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(side_effect=OpenRouterError("API timeout"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
@@ -393,20 +425,18 @@ class TestModelUnavailability:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(side_effect=ModelUnavailableError("model gone"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
             patch("aicouncil.tools.council.get_agents", return_value=integration_roster),
             patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
-            caplog.at_level(logging.ERROR),
         ):
-            with pytest.raises(CouncilError):
-                await ai_council(topic="Test topic")
+            with caplog.at_level(logging.DEBUG):
+                with pytest.raises(CouncilError):
+                    await ai_council(topic="Test topic")
 
-        # At least one log entry contains [council:<uuid>]
-        council_logs = [r for r in caplog.records if "council:" in r.message]
-        assert len(council_logs) > 0
+        _assert_session_uuid_in_logs(caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +481,7 @@ class TestPydanticResponseValidation:
         assert isinstance(save_result, AddendumSaveResult)
 
     @pytest.mark.asyncio
-    async def test_nested_models_are_pydantic(self, council_patches):
+    async def test_nested_models_are_pydantic(self, council_patches, tmp_path):
         """All nested objects in assembly result are proper Pydantic instances."""
         patches, _ = council_patches
 
@@ -474,8 +504,20 @@ class TestPydanticResponseValidation:
         for assignment in result.composition.assignments:
             assert isinstance(assignment, BaseModel)
 
-        # AddendumMetadata (via save)
-        assert isinstance(result.composition.classification, TopicClassification)
+        # AddendumMetadata — must invoke save to get an actual metadata instance
+        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+            save_result = await save_council_addendum(
+                session_id=result.composition.session_id,
+                topic=result.composition.topic,
+                agents=[a.agent_name for a in result.composition.assignments],
+                model_assignments={
+                    a.agent_name: a.assigned_model for a in result.composition.assignments
+                },
+                addendum_content="Test content for metadata validation.",
+            )
+
+        assert isinstance(save_result.metadata, BaseModel)
+        assert isinstance(save_result.metadata, AddendumMetadata)
 
     @pytest.mark.asyncio
     async def test_error_states_are_council_error(self, integration_config, integration_roster):
@@ -483,7 +525,7 @@ class TestPydanticResponseValidation:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(side_effect=OpenRouterError("API error"))
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
@@ -534,13 +576,13 @@ class TestErrorHandlingPipeline:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(return_value=mock_classification)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=config_no_domains),
             patch("aicouncil.tools.council.get_agents", return_value=integration_roster),
             patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
-            pytest.raises(CouncilError, match="No capability domains"),
+            pytest.raises(CouncilError, match="No capability domains found"),
         ):
             await ai_council(topic="Test topic")
 
@@ -553,7 +595,7 @@ class TestErrorHandlingPipeline:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(return_value={"error": True, "message": "bad"})
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
@@ -573,13 +615,13 @@ class TestErrorHandlingPipeline:
         mock_client = AsyncMock()
         mock_client.generate = AsyncMock(return_value=mock_classification)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with (
             patch("aicouncil.tools.council.get_config", return_value=integration_config),
             patch("aicouncil.tools.council.get_agents", return_value=empty_roster),
             patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
-            pytest.raises(CouncilError, match="empty"),
+            pytest.raises(CouncilError, match="roster is empty"),
         ):
             await ai_council(topic="Test topic")
 
@@ -599,9 +641,24 @@ class TestErrorHandlingPipeline:
                 )
 
     @pytest.mark.asyncio
+    async def test_oversized_addendum_multibyte(self, tmp_path):
+        """Addendum with multibyte chars exceeding 1MB byte limit is rejected."""
+        # Each \u00e9 is 2 bytes in UTF-8; half the byte limit + 1 chars exceeds it
+        oversized = "\u00e9" * (MAX_ADDENDUM_CONTENT_BYTES // 2 + 1)
+
+        with patch("aicouncil.tools.council.Path.cwd", return_value=tmp_path):
+            with pytest.raises(CouncilError, match="exceeds maximum size"):
+                await save_council_addendum(
+                    session_id=str(uuid.uuid4()),
+                    topic="Test",
+                    agents=["Agent1"],
+                    model_assignments={"Agent1": "model-a"},
+                    addendum_content=oversized,
+                )
+
+    @pytest.mark.asyncio
     async def test_file_io_failure_raises_council_error(self):
         """File I/O failure -> CouncilError (wrapped OSError)."""
-        # Use a non-writable path
         with patch("aicouncil.tools.council.Path.cwd", return_value=Path("/nonexistent/path")):
             with pytest.raises(CouncilError):
                 await save_council_addendum(
@@ -613,19 +670,59 @@ class TestErrorHandlingPipeline:
                 )
 
     @pytest.mark.asyncio
-    async def test_session_uuid_in_error_logs(self, council_patches, caplog):
-        """All error log entries include session UUID."""
+    async def test_session_uuid_in_error_logs_empty_topic(self, council_patches, caplog):
+        """Session UUID in logs for empty topic error path."""
         patches, _ = council_patches
 
         with patches["config"], patches["agents"], patches["client"]:
-            with caplog.at_level(logging.ERROR):
+            with caplog.at_level(logging.DEBUG):
                 with pytest.raises(CouncilError):
                     await ai_council(topic="")
 
-        # Check that error log includes [council:<uuid>]
-        error_logs = [r for r in caplog.records if r.levelno >= logging.ERROR]
-        assert len(error_logs) > 0
-        assert any("council:" in r.message for r in error_logs)
+        _assert_session_uuid_in_logs(caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_session_uuid_in_error_logs_model_failure(
+        self, integration_config, integration_roster, caplog
+    ):
+        """Session UUID in logs for model failure error path."""
+        mock_client = AsyncMock()
+        mock_client.generate = AsyncMock(side_effect=OpenRouterError("API error"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("aicouncil.tools.council.get_config", return_value=integration_config),
+            patch("aicouncil.tools.council.get_agents", return_value=integration_roster),
+            patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
+        ):
+            with caplog.at_level(logging.DEBUG):
+                with pytest.raises(CouncilError):
+                    await ai_council(topic="Test topic")
+
+        _assert_session_uuid_in_logs(caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_session_uuid_in_error_logs_empty_roster(
+        self, integration_config, mock_classification, caplog
+    ):
+        """Session UUID in logs for empty roster error path."""
+        empty_roster = AgentRoster(agents=[])
+        mock_client = AsyncMock()
+        mock_client.generate = AsyncMock(return_value=mock_classification)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with (
+            patch("aicouncil.tools.council.get_config", return_value=integration_config),
+            patch("aicouncil.tools.council.get_agents", return_value=empty_roster),
+            patch("aicouncil.tools.council.OpenRouterClient", return_value=mock_client),
+        ):
+            with caplog.at_level(logging.DEBUG):
+                with pytest.raises(CouncilError):
+                    await ai_council(topic="Test topic")
+
+        _assert_session_uuid_in_logs(caplog.records)
 
     def test_no_broad_exception_catch_in_pipeline(self):
         """Verify council pipeline source code doesn't catch bare Exception."""
@@ -640,10 +737,9 @@ class TestErrorHandlingPipeline:
             "src/aicouncil/agent_loader.py",
         ]
 
-        for module_path in pipeline_modules:
-            path = Path(module_path)
-            if not path.exists():
-                continue
+        for module_rel in pipeline_modules:
+            path = _PROJECT_ROOT / module_rel
+            assert path.exists(), f"Expected pipeline module not found: {module_rel}"
 
             source = path.read_text()
             tree = ast.parse(source)
@@ -651,16 +747,25 @@ class TestErrorHandlingPipeline:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ExceptHandler):
                     if node.type is None:
-                        # bare `except:` — not allowed
                         pytest.fail(
-                            f"{module_path}:{node.lineno} has bare 'except:' — "
+                            f"{module_rel}:{node.lineno} has bare 'except:' — "
                             "must use specific AiCouncilError subclasses"
                         )
+                    # Check single-name handler: except Exception:
                     if isinstance(node.type, ast.Name) and node.type.id == "Exception":
                         pytest.fail(
-                            f"{module_path}:{node.lineno} catches broad 'Exception' — "
+                            f"{module_rel}:{node.lineno} catches broad 'Exception' — "
                             "must use specific AiCouncilError subclasses"
                         )
+                    # Check tuple handler: except (Foo, Exception):
+                    if isinstance(node.type, ast.Tuple):
+                        for elt in node.type.elts:
+                            if isinstance(elt, ast.Name) and elt.id == "Exception":
+                                pytest.fail(
+                                    f"{module_rel}:{node.lineno} catches broad 'Exception' "
+                                    "in tuple handler — "
+                                    "must use specific AiCouncilError subclasses"
+                                )
 
 
 # ---------------------------------------------------------------------------
@@ -684,7 +789,9 @@ class TestNFRValidation:
 
     def test_no_http_outside_client(self):
         """No module other than client.py imports httpx (NFR5)."""
-        src_dir = Path("src/aicouncil")
+        src_dir = _PROJECT_ROOT / "src" / "aicouncil"
+        assert src_dir.exists(), f"Source directory not found: {src_dir}"
+
         for py_file in src_dir.rglob("*.py"):
             if py_file.name == "client.py":
                 continue
@@ -692,18 +799,19 @@ class TestNFRValidation:
             source = py_file.read_text()
             tree = ast.parse(source)
 
+            rel_path = py_file.relative_to(_PROJECT_ROOT / "src")
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         if alias.name == "httpx" or alias.name.startswith("httpx."):
                             pytest.fail(
-                                f"{py_file.relative_to('src')} imports httpx "
+                                f"{rel_path} imports httpx "
                                 "— only client.py should import httpx (NFR5)"
                             )
                 if isinstance(node, ast.ImportFrom):
                     if node.module and (node.module == "httpx" or node.module.startswith("httpx.")):
                         pytest.fail(
-                            f"{py_file.relative_to('src')} imports from httpx "
+                            f"{rel_path} imports from httpx "
                             "— only client.py should import httpx (NFR5)"
                         )
 

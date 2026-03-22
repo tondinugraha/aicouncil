@@ -1,6 +1,6 @@
 # Story 2.5: End-to-End Integration
 
-Status: review
+Status: done
 
 ## Story
 
@@ -425,29 +425,48 @@ tests/
 
 ### Agent Model Used
 
-Claude Opus 4.6 (1M context)
+- DS: Claude Opus 4.6 (1M context)
+- CR: Claude Sonnet 4.6 (orchestrator) + 3 parallel review subagents
 
 ### Debug Log References
 
-None — all tests passed on first run.
+None — all tests passed on first run. CR fixes also passed on first run.
 
 ### Completion Notes List
 
-- Created `tests/test_integration.py` with 25 end-to-end integration tests across 5 test classes
+- Created `tests/test_integration.py` with 28 end-to-end integration tests across 5 test classes
 - **TestFullCouncilLifecycle** (4 tests): Full assembly-to-save lifecycle, data handoff consistency, self-contained markdown file validation, multiple sequential councils producing distinct files
-- **TestModelUnavailability** (4 tests): Client retry behavior (503 -> 3 retries -> ModelUnavailableError), error wrapping (ModelUnavailableError -> CouncilError), structured error on classification failure, session UUID in error logs
-- **TestErrorHandlingPipeline** (9 tests): Empty/whitespace topic, no capability domains, invalid classification, empty roster, oversized addendum (>1MB), file I/O failure, session UUID in error logs, no broad Exception catch in pipeline source (AST-based static analysis)
-- **TestPydanticResponseValidation** (4 tests): ai_council returns BaseModel, save_council_addendum returns BaseModel, nested models are Pydantic, error states are CouncilError
+- **TestModelUnavailability** (4 tests): Client retry behavior (503 -> 3 retries -> ModelUnavailableError), error wrapping with session UUID in logs (ModelUnavailableError -> CouncilError + UUID log assertion), structured error on classification failure, session UUID in error logs
+- **TestErrorHandlingPipeline** (12 tests): Empty/whitespace topic, no capability domains (exact match "No capability domains found"), invalid classification, empty roster (match "roster is empty"), oversized addendum ASCII (>1MB), oversized addendum multibyte (UTF-8 2-byte chars), file I/O failure, session UUID in error logs across 3 error paths (empty topic, model failure, empty roster), no broad Exception catch in pipeline source (AST-based static analysis with tuple handler support)
+- **TestPydanticResponseValidation** (4 tests): ai_council returns BaseModel, save_council_addendum returns BaseModel, nested models are Pydantic (including AddendumMetadata via actual save invocation), error states are CouncilError
 - **TestNFRValidation** (4 tests): Single LLM call for assembly (NFR2), no httpx imports outside client.py (NFR5, AST-based), all tool returns are Pydantic, session UUID correlation across tools
 - Reassignment pattern documented in test docstrings: host AI catches model failure during deliberation, invokes ai_council again with remaining agents pinned to new models
 - Zero production code changes — tests only
-- 372 total tests (347 existing + 25 new), zero regressions
+- 375 total tests (347 existing + 28 new), zero regressions
 - Lint clean: ruff format + ruff check passed
+
+### CR Fixes Applied (CR 2-5)
+
+- **P-1**: AST static analysis tests anchored to `Path(__file__).parent.parent` instead of relative paths; added `assert path.exists()` guards to fail hard on missing modules
+- **P-2**: AST exception check now handles `ast.Tuple` handler form (`except (Foo, Exception):`)
+- **P-3/P-4**: `caplog.at_level` restructured as nested `with caplog.at_level(logging.DEBUG):` blocks; uses `r.getMessage()` via helper
+- **P-5**: Session UUID log assertion now validates actual UUID regex pattern, not just `"council:"` substring
+- **P-6**: `test_model_failure_wraps_in_council_error` merged with UUID log check into `test_model_failure_wraps_in_council_error_with_uuid_log`
+- **P-7**: `test_nested_models_are_pydantic` now invokes `save_council_addendum` and asserts `AddendumMetadata` is a Pydantic `BaseModel` (was duplicate TopicClassification assertion)
+- **P-8**: Match string tightened from `"No capability domains"` to `"No capability domains found"`
+- **P-9**: `test_session_uuid_in_error_logs` split into 3 tests covering empty topic, model failure, and empty roster error paths
+- **P-10**: `mock_client.__aexit__` changed from `return_value=False` to `return_value=None` (convention)
+- **P-11**: Added `assert not Path(save_result.file_path).is_absolute()` in lifecycle tests
+- **P-13**: Added `assert 2 <= integration_config.retry_attempts <= 3` to validate spec range
+- **P-14**: Frontmatter check rewritten to structurally parse first/second `---` fences instead of `content.count("---") >= 2`
+- **D-2**: Added `test_oversized_addendum_multibyte` exercising byte-limit enforcement with 2-byte UTF-8 characters
+- Brittle `match="empty"` tightened to `match="roster is empty"`
 
 ### Change Log
 
 - 2026-03-22: Story 2.5 implementation — 25 end-to-end integration tests added
+- 2026-03-22: CR 2-5 fixes — 15 findings addressed, 3 net new tests (25 -> 28), 375 total passing
 
 ### File List
 
-- tests/test_integration.py (NEW)
+- tests/test_integration.py (NEW, updated by CR 2-5)
