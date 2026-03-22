@@ -17,6 +17,7 @@ from aicouncil.council.schemas import (
     AgentAssignment,
     AgentDomainWeight,
     ChairpersonInstructions,
+    CompactCouncilResult,
     ConsensusAndSynthesisData,
     ConsensusRoundGuidance,
     ContextWindowInfo,
@@ -743,11 +744,10 @@ class TestAiCouncilTool:
                 council_size=5,
             )
 
-            assert isinstance(result, CouncilAssemblyResult)
-            assert result.composition.council_size > 0
-            assert isinstance(result.orchestration, OrchestrationData)
-            assert result.orchestration.summary
-            assert result.composition.session_id
+            assert isinstance(result, CompactCouncilResult)
+            assert result.council_size > 0
+            assert result.orchestration_summary
+            assert result.session_id
 
     @pytest.mark.asyncio
     async def test_classification_failure(self, mock_config):

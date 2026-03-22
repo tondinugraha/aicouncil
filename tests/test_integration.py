@@ -22,6 +22,7 @@ from aicouncil.config import CapabilityWeight, Config
 from aicouncil.council.schemas import (
     AddendumMetadata,
     AddendumSaveResult,
+    CompactCouncilResult,
     CouncilAssemblyResult,
     CouncilComposition,
     OrchestrationData,
@@ -309,12 +310,12 @@ class TestFullCouncilLifecycle:
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        assert isinstance(result, CouncilAssemblyResult)
-        assert isinstance(result.composition, CouncilComposition)
-        assert isinstance(result.orchestration, OrchestrationData)
+        assert isinstance(result, CompactCouncilResult)
+        assert result.council_size > 0
+        assert result.orchestration_summary
 
         # Extract data for save (simulating host AI handoff)
-        session_id = result.composition.session_id
+        session_id = result.session_id
 
         # Save addendum
         addendum_content = "## Consensus\nThe council recommends microservices."
@@ -343,10 +344,10 @@ class TestFullCouncilLifecycle:
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        session_id = result.composition.session_id
-        topic = result.composition.topic
-        agents = [a.agent_name for a in result.composition.assignments]
-        model_assignments = {a.agent_name: a.assigned_model for a in result.composition.assignments}
+        session_id = result.session_id
+        topic = result.topic
+        agents = [a.agent_name for a in result.agents]
+        model_assignments = {a.agent_name: a.assigned_model for a in result.agents}
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
@@ -369,7 +370,7 @@ class TestFullCouncilLifecycle:
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        session_id = result.composition.session_id
+        session_id = result.session_id
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
@@ -407,10 +408,10 @@ class TestFullCouncilLifecycle:
             result1 = await ai_council(topic="Should we adopt microservices?")
             result2 = await ai_council(topic="Should we adopt microservices?")
 
-        assert result1.composition.session_id != result2.composition.session_id
+        assert result1.session_id != result2.session_id
 
         for i, result in enumerate([result1, result2]):
-            session_id = result.composition.session_id
+            session_id = result.session_id
 
             with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
                 await save_council_addendum(
@@ -536,14 +537,14 @@ class TestPydanticResponseValidation:
 
     @pytest.mark.asyncio
     async def test_ai_council_returns_pydantic(self, council_patches):
-        """ai_council returns CouncilAssemblyResult (BaseModel), never dict/string."""
+        """ai_council returns CompactCouncilResult (BaseModel), never dict/string."""
         patches, _ = council_patches
 
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
         assert isinstance(result, BaseModel)
-        assert isinstance(result, CouncilAssemblyResult)
+        assert isinstance(result, CompactCouncilResult)
 
     @pytest.mark.asyncio
     async def test_save_addendum_returns_pydantic(self, council_patches, tmp_path):
@@ -555,7 +556,7 @@ class TestPydanticResponseValidation:
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
-                session_id=result.composition.session_id,
+                session_id=result.session_id,
                 addendum_content="Test content.",
             )
 
@@ -564,32 +565,29 @@ class TestPydanticResponseValidation:
 
     @pytest.mark.asyncio
     async def test_nested_models_are_pydantic(self, council_patches, tmp_path):
-        """All nested objects in assembly result are proper Pydantic instances."""
+        """All nested objects in compact result are proper Pydantic instances."""
         patches, _ = council_patches
 
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        # CouncilComposition
-        assert isinstance(result.composition, BaseModel)
-        assert isinstance(result.composition, CouncilComposition)
+        # CompactCouncilResult fields
+        assert isinstance(result, CompactCouncilResult)
+        assert result.session_id
+        assert result.topic
+        assert result.council_size > 0
+        assert result.orchestration_summary
 
-        # OrchestrationData
-        assert isinstance(result.orchestration, BaseModel)
-        assert isinstance(result.orchestration, OrchestrationData)
-
-        # TopicClassification
-        assert isinstance(result.composition.classification, BaseModel)
-        assert isinstance(result.composition.classification, TopicClassification)
-
-        # AgentAssignments
-        for assignment in result.composition.assignments:
-            assert isinstance(assignment, BaseModel)
+        # AgentSummary list
+        for agent in result.agents:
+            assert isinstance(agent, BaseModel)
+            assert agent.agent_name
+            assert agent.assigned_model
 
         # AddendumMetadata — must invoke save to get an actual metadata instance
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
-                session_id=result.composition.session_id,
+                session_id=result.session_id,
                 addendum_content="Test content for metadata validation.",
             )
 
@@ -900,7 +898,7 @@ class TestNFRValidation:
 
         assert isinstance(assembly_result, BaseModel)
 
-        session_id = assembly_result.composition.session_id
+        session_id = assembly_result.session_id
 
         with patch("aicouncil.tools.council.get_project_root", return_value=tmp_path):
             save_result = await save_council_addendum(
@@ -918,7 +916,7 @@ class TestNFRValidation:
         with patches["config"], patches["agents"], patches["client"]:
             result = await ai_council(topic="Should we adopt microservices?")
 
-        session_id = result.composition.session_id
+        session_id = result.session_id
         # Verify it's a valid UUID
         uuid.UUID(session_id)
 
