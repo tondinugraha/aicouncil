@@ -19,6 +19,7 @@ from aicouncil.council.history import write_council_addendum
 from aicouncil.council.schemas import (
     AddendumMetadata,
     AddendumSaveResult,
+    CompactCouncilResult,
     CouncilAssemblyResult,
     TopicClassification,
 )
@@ -44,7 +45,7 @@ async def ai_council(
     include_user_agents: bool = True,
     include_wildcard: bool = True,
     model: str | None = None,
-) -> CouncilAssemblyResult:
+) -> CompactCouncilResult:
     """Assemble a multi-agent, multi-model council for deliberation on a topic.
 
     Classifies the topic, selects relevant agents from the roster,
@@ -131,7 +132,7 @@ async def ai_council(
         # Step 5: Cache session for council_speak
         store_session(session_id, result)
 
-        return result
+        return CompactCouncilResult.from_assembly(result)
 
     except CouncilError as e:
         logger.error("[council:%s] Council error: %s", session_id, e)
@@ -155,6 +156,11 @@ async def council_speak(
     includes the full conversation history automatically, and sends
     the prompt to the agent's assigned model. The response is appended
     to the session's conversation history for subsequent calls.
+
+    DISPLAY RULE: The host AI MUST display the agent's `response` field
+    VERBATIM after each call — never summarize, paraphrase, or shorten it.
+    Format as: **Agent Name** (model):\\n\\n[exact response text, unchanged]
+    \\n\\n**Stance:** [stance text].
 
     Args:
         session_id: Council session UUID from ai_council assembly.

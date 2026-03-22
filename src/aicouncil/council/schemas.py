@@ -196,6 +196,52 @@ class CouncilAssemblyResult(BaseModel):
     )
 
 
+class AgentSummary(BaseModel):
+    """Compact agent info for the tool response display."""
+
+    agent_name: str = Field(description="Agent display name")
+    agent_role: str = Field(description="Agent role title")
+    agent_type: str = Field(description="Agent type: expert/builder/user")
+    assigned_model: str = Field(description="OpenRouter model ID")
+    is_wildcard: bool = Field(default=False, description="True if wildcard pick")
+    is_pinned: bool = Field(default=False, description="True if user-requested")
+
+
+class CompactCouncilResult(BaseModel):
+    """Compact MCP tool return for ai_council — full data is cached server-side."""
+
+    session_id: str = Field(description="UUID for council_speak calls")
+    topic: str = Field(description="Original topic")
+    council_size: int = Field(description="Number of agents assembled")
+    agents: list[AgentSummary] = Field(description="Agent roster summary")
+    unique_models: int = Field(description="Number of distinct models in use")
+    orchestration_summary: str = Field(description="Brief orchestration overview")
+
+    @classmethod
+    def from_assembly(cls, assembly: "CouncilAssemblyResult") -> "CompactCouncilResult":
+        """Build a compact result from the full assembly."""
+        agents = [
+            AgentSummary(
+                agent_name=a.agent_name,
+                agent_role=a.agent_role,
+                agent_type=a.agent_type,
+                assigned_model=a.assigned_model,
+                is_wildcard=a.is_wildcard,
+                is_pinned=a.is_pinned,
+            )
+            for a in assembly.composition.assignments
+        ]
+        unique_models = len({a.assigned_model for a in assembly.composition.assignments})
+        return cls(
+            session_id=assembly.composition.session_id,
+            topic=assembly.composition.topic,
+            council_size=assembly.composition.council_size,
+            agents=agents,
+            unique_models=unique_models,
+            orchestration_summary=assembly.orchestration.summary,
+        )
+
+
 class AddendumMetadata(BaseModel):
     """Metadata for a council addendum file header."""
 
