@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class TopicClassification(BaseModel):
@@ -40,8 +40,70 @@ class CouncilComposition(BaseModel):
     diversity_metrics: dict[str, Any] = Field(description="Category mix, tier spread, model spread")
 
 
+class ChairpersonInstructions(BaseModel):
+    """Structured instructions for the host AI acting as chairperson."""
+
+    speaking_order: str = Field(description="Instructions for managing agent speaking turns")
+    debate_triggers: str = Field(description="When and how to introduce adversarial debate")
+    conclusion_driving: str = Field(description="How to drive the council toward conclusion")
+    topic_framing: str = Field(description="How to frame the topic for the council")
+
+
+class ToneGuidance(BaseModel):
+    """Rules for dynamic tone shifting during deliberation."""
+
+    default_tone: str = Field(description="Starting tone for the deliberation")
+    adversarial_triggers: str = Field(
+        description="Conditions that should trigger adversarial/devil's advocate mode"
+    )
+    agreement_triggers: str = Field(
+        description="Conditions that should trigger agreement-seeking mode"
+    )
+    tone_shift_rules: str = Field(description="Rules for when and how to shift between tones")
+
+
+class ConvergenceGuidance(BaseModel):
+    """Criteria for evaluating when to continue vs. drive toward consensus."""
+
+    evaluation_criteria: str = Field(description="How to evaluate whether positions are converging")
+    continue_signals: str = Field(description="Signals that deliberation should continue")
+    consensus_signals: str = Field(description="Signals that it's time to drive toward consensus")
+    no_fixed_rounds: str = Field(
+        description="Reminder: no fixed round count — evaluate dynamically"
+    )
+
+
+class ContextWindowInfo(BaseModel):
+    """Per-model context window metadata for adaptive context management."""
+
+    model: str = Field(description="Model identifier")
+    context_window: int = Field(description="Total context window in tokens")
+
+    @computed_field(description="50% threshold for context summarization")  # type: ignore[misc]
+    @property
+    def half_window(self) -> int:
+        return self.context_window // 2
+
+
+class OrchestrationData(BaseModel):
+    """Complete orchestration data package for the host AI chairperson."""
+
+    chairperson: ChairpersonInstructions = Field(
+        description="Instructions for directing the deliberation"
+    )
+    tone: ToneGuidance = Field(description="Dynamic tone shifting guidance")
+    convergence: ConvergenceGuidance = Field(description="When to continue vs. drive to consensus")
+    context_windows: list[ContextWindowInfo] = Field(
+        description="Per-model context window metadata"
+    )
+    agent_count: int = Field(description="Number of agents in the council")
+    summary: str = Field(description="Brief human-readable orchestration summary")
+
+
 class CouncilAssemblyResult(BaseModel):
     """MCP tool return — everything the host AI needs to orchestrate."""
 
     composition: CouncilComposition = Field(description="Who is on the council")
-    orchestration_notes: str = Field(description="Brief guidance for the host AI")
+    orchestration: OrchestrationData = Field(
+        description="Orchestration data for the host AI chairperson"
+    )

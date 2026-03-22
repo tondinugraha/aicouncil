@@ -1,6 +1,6 @@
 # Story 2.2: Council Orchestration Data
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -32,40 +32,40 @@ so that I can effectively direct the deliberation as chairperson — controlling
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Define orchestration Pydantic schemas (AC: #1, #2, #3, #5)
-  - [ ] Add `ChairpersonInstructions` model to `council/schemas.py`
-  - [ ] Add `ToneGuidance` model to `council/schemas.py`
-  - [ ] Add `ConvergenceGuidance` model to `council/schemas.py`
-  - [ ] Add `ContextWindowInfo` model to `council/schemas.py`
-  - [ ] Add `OrchestrationData` model to `council/schemas.py` (aggregates all above)
-  - [ ] Update `CouncilAssemblyResult` to replace `orchestration_notes: str` with `orchestration: OrchestrationData`
+- [x] Task 1: Define orchestration Pydantic schemas (AC: #1, #2, #3, #5)
+  - [x] Add `ChairpersonInstructions` model to `council/schemas.py`
+  - [x] Add `ToneGuidance` model to `council/schemas.py`
+  - [x] Add `ConvergenceGuidance` model to `council/schemas.py`
+  - [x] Add `ContextWindowInfo` model to `council/schemas.py`
+  - [x] Add `OrchestrationData` model to `council/schemas.py` (aggregates all above)
+  - [x] Update `CouncilAssemblyResult` to replace `orchestration_notes: str` with `orchestration: OrchestrationData`
 
-- [ ] Task 2: Build orchestration data in assembler (AC: #1, #2, #3, #4, #5)
-  - [ ] Add `build_orchestration_data()` method to `CouncilAssembler`
-  - [ ] Generate chairperson instructions from council composition (topic, agent roster, domain weights)
-  - [ ] Generate tone guidance with convergence-aware rules
-  - [ ] Generate convergence evaluation criteria
-  - [ ] Compute per-model context window metadata with 50% threshold values
-  - [ ] Retain backward-compatible `orchestration_notes` as a summary string inside `OrchestrationData`
+- [x] Task 2: Build orchestration data in assembler (AC: #1, #2, #3, #4, #5)
+  - [x] Add `build_orchestration_data()` method to `CouncilAssembler`
+  - [x] Generate chairperson instructions from council composition (topic, agent roster, domain weights)
+  - [x] Generate tone guidance with convergence-aware rules
+  - [x] Generate convergence evaluation criteria
+  - [x] Compute per-model context window metadata with 50% threshold values
+  - [x] Retain backward-compatible `orchestration_notes` as a summary string inside `OrchestrationData`
 
-- [ ] Task 3: Update tool to pass orchestration data (AC: all)
-  - [ ] Update `tools/council.py` to call `build_orchestration_data()` instead of `build_orchestration_notes()`
-  - [ ] Return `OrchestrationData` in `CouncilAssemblyResult`
+- [x] Task 3: Update tool to pass orchestration data (AC: all)
+  - [x] Update `tools/council.py` to call `build_orchestration_data()` instead of `build_orchestration_notes()`
+  - [x] Return `OrchestrationData` in `CouncilAssemblyResult`
 
-- [ ] Task 4: Write tests (AC: all)
-  - [ ] Test `ChairpersonInstructions` schema validation
-  - [ ] Test `ToneGuidance` schema content
-  - [ ] Test `ConvergenceGuidance` schema content
-  - [ ] Test `ContextWindowInfo` per-model calculation (50% threshold)
-  - [ ] Test `OrchestrationData` composition from council
-  - [ ] Test `build_orchestration_data()` produces correct structure from various council compositions
-  - [ ] Test backward-compat: `orchestration_notes` summary string still present
-  - [ ] Test edge cases: single-agent council, all same model, missing context_window
+- [x] Task 4: Write tests (AC: all)
+  - [x] Test `ChairpersonInstructions` schema validation
+  - [x] Test `ToneGuidance` schema content
+  - [x] Test `ConvergenceGuidance` schema content
+  - [x] Test `ContextWindowInfo` per-model calculation (50% threshold)
+  - [x] Test `OrchestrationData` composition from council
+  - [x] Test `build_orchestration_data()` produces correct structure from various council compositions
+  - [x] Test backward-compat: `orchestration_notes` summary string still present
+  - [x] Test edge cases: single-agent council, all same model, missing context_window
 
-- [ ] Task 5: Lint & Format (AC: all)
-  - [ ] `uv run ruff format .`
-  - [ ] `uv run ruff check --fix .`
-  - [ ] `uv run pytest` — all tests pass with zero regressions
+- [x] Task 5: Lint & Format (AC: all)
+  - [x] `uv run ruff format .`
+  - [x] `uv run ruff check --fix .`
+  - [x] `uv run pytest` — all tests pass with zero regressions
 
 ## Dev Notes
 
@@ -567,10 +567,28 @@ tests/
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.6 (1M context)
 
 ### Debug Log References
 
+None.
+
 ### Completion Notes List
 
+- ✅ Task 1: Added 5 Pydantic schemas (`ChairpersonInstructions`, `ToneGuidance`, `ConvergenceGuidance`, `ContextWindowInfo`, `OrchestrationData`) to `council/schemas.py`. Updated `CouncilAssemblyResult` to use `orchestration: OrchestrationData` replacing `orchestration_notes: str`.
+- ✅ Task 2: Added `build_orchestration_data()` + 4 private helpers (`_build_chairperson_instructions`, `_build_tone_guidance`, `_build_convergence_guidance`, `_build_context_windows`) to `CouncilAssembler`. Chairperson instructions dynamically reference agent roster. Tone defaults vary by topic (exploratory/structured debate/risk-aware). Context windows deduplicate models and compute 50% threshold. Summary field reuses existing `_build_orchestration_notes()`.
+- ✅ Task 3: Updated `tools/council.py` to call `build_orchestration_data()` and pass `orchestration=` to `CouncilAssemblyResult`.
+- ✅ Task 4: Added 20 new tests (56 total council tests): schema validation, builder integration, tone variation by topic type, edge cases (single-agent, all-same-model, missing context window), backward compatibility. Updated 2 existing tests for new schema.
+- ✅ Task 5: Ruff format + lint clean. 261/261 tests pass, zero regressions.
+
+### Change Log
+
+- 2026-03-22: Story 2.2 implementation complete — orchestration data schemas, assembler methods, tool update, and comprehensive tests.
+- 2026-03-22: CR 2-2 fixes applied — 5 patches from code review: (1) `ContextWindowInfo.half_window` converted to `computed_field` enforced by schema; (2) empty-domains fallback in `topic_framing`/`debate_triggers`; (3) `context_window=0` excluded from context_windows list; (4) `build_orchestration_notes` renamed to `_build_orchestration_notes` (private per spec intent); (5) `logger.warning` for unknown agent types in speaking order. 261/261 tests pass.
+
 ### File List
+
+- `src/aicouncil/council/schemas.py` — Added 5 orchestration Pydantic models, updated `CouncilAssemblyResult`; `ContextWindowInfo.half_window` is a `computed_field`
+- `src/aicouncil/council/assembler.py` — Added `build_orchestration_data()` + 4 private builder methods; `build_orchestration_notes` renamed to `_build_orchestration_notes`; empty-domains and zero-context-window guards added; unknown agent type warning
+- `src/aicouncil/tools/council.py` — Updated to call `build_orchestration_data()`
+- `tests/test_council.py` — Added 20 new orchestration data tests, updated 4 existing tests (schema change + private method rename)

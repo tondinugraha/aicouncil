@@ -13,8 +13,13 @@ from aicouncil.council.assembler import (
 )
 from aicouncil.council.schemas import (
     AgentAssignment,
+    ChairpersonInstructions,
+    ContextWindowInfo,
+    ConvergenceGuidance,
     CouncilAssemblyResult,
     CouncilComposition,
+    OrchestrationData,
+    ToneGuidance,
     TopicClassification,
 )
 from aicouncil.exceptions import CouncilError
@@ -246,11 +251,35 @@ class TestCouncilAssemblyResult:
             council_size=0,
             diversity_metrics={},
         )
+        orchestration = OrchestrationData(
+            chairperson=ChairpersonInstructions(
+                speaking_order="order",
+                debate_triggers="triggers",
+                conclusion_driving="driving",
+                topic_framing="framing",
+            ),
+            tone=ToneGuidance(
+                default_tone="exploratory",
+                adversarial_triggers="triggers",
+                agreement_triggers="triggers",
+                tone_shift_rules="rules",
+            ),
+            convergence=ConvergenceGuidance(
+                evaluation_criteria="criteria",
+                continue_signals="signals",
+                consensus_signals="signals",
+                no_fixed_rounds="dynamic",
+            ),
+            context_windows=[],
+            agent_count=0,
+            summary="Test notes",
+        )
         result = CouncilAssemblyResult(
             composition=comp,
-            orchestration_notes="Test notes",
+            orchestration=orchestration,
         )
-        assert result.orchestration_notes == "Test notes"
+        assert result.orchestration.summary == "Test notes"
+        assert isinstance(result.orchestration, OrchestrationData)
 
 
 # ---------------------------------------------------------------------------
@@ -629,7 +658,7 @@ class TestOrchestrationNotes:
             session_id="test",
             council_size=7,
         )
-        notes = assembler.build_orchestration_notes(composition)
+        notes = assembler._build_orchestration_notes(composition)
         assert "Council of" in notes
         assert "agents assembled" in notes
         assert "Domains:" in notes
@@ -692,7 +721,8 @@ class TestAiCouncilTool:
 
             assert isinstance(result, CouncilAssemblyResult)
             assert result.composition.council_size > 0
-            assert result.orchestration_notes
+            assert isinstance(result.orchestration, OrchestrationData)
+            assert result.orchestration.summary
             assert result.composition.session_id
 
     @pytest.mark.asyncio
@@ -710,6 +740,348 @@ class TestAiCouncilTool:
 
             with pytest.raises(CouncilError, match="classification failed"):
                 await ai_council(topic="test topic")
+
+
+# ---------------------------------------------------------------------------
+# Orchestration Data Tests (Story 2.2)
+# ---------------------------------------------------------------------------
+
+
+class TestChairpersonInstructions:
+    def test_fields_non_empty(self):
+        ci = ChairpersonInstructions(
+            speaking_order="order",
+            debate_triggers="triggers",
+            conclusion_driving="driving",
+            topic_framing="framing",
+        )
+        assert ci.speaking_order
+        assert ci.debate_triggers
+        assert ci.conclusion_driving
+        assert ci.topic_framing
+
+
+class TestToneGuidance:
+    def test_fields_non_empty(self):
+        tg = ToneGuidance(
+            default_tone="exploratory",
+            adversarial_triggers="triggers",
+            agreement_triggers="triggers",
+            tone_shift_rules="rules",
+        )
+        assert tg.default_tone
+        assert tg.adversarial_triggers
+        assert tg.agreement_triggers
+        assert tg.tone_shift_rules
+
+
+class TestConvergenceGuidance:
+    def test_fields_non_empty(self):
+        cg = ConvergenceGuidance(
+            evaluation_criteria="criteria",
+            continue_signals="signals",
+            consensus_signals="signals",
+            no_fixed_rounds="dynamic",
+        )
+        assert cg.evaluation_criteria
+        assert cg.continue_signals
+        assert cg.consensus_signals
+        assert cg.no_fixed_rounds
+
+
+class TestContextWindowInfo:
+    def test_half_calculation(self):
+        cwi = ContextWindowInfo(model="model-a", context_window=200000)
+        assert cwi.half_window == 100000
+
+    def test_odd_context_window(self):
+        cwi = ContextWindowInfo(model="model-x", context_window=131073)
+        assert cwi.half_window == 65536
+
+
+class TestBuildOrchestrationData:
+    def test_returns_orchestration_data(self, mock_config, sample_classification, sample_roster):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert isinstance(orchestration, OrchestrationData)
+
+    def test_includes_summary(self, mock_config, sample_classification, sample_roster):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert "Council of" in orchestration.summary
+        assert "agents assembled" in orchestration.summary
+
+    def test_context_windows_unique_models(self, mock_config, sample_classification, sample_roster):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=7,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        models_in_windows = [cw.model for cw in orchestration.context_windows]
+        assert len(models_in_windows) == len(set(models_in_windows))
+
+    def test_context_windows_50_percent_threshold(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        for cw in orchestration.context_windows:
+            assert cw.half_window == cw.context_window // 2
+
+    def test_agent_count_matches_composition(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert orchestration.agent_count == composition.council_size
+
+    def test_chairperson_mentions_agent_names(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+            include_wildcard=False,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        for a in composition.assignments:
+            assert a.agent_name in orchestration.chairperson.speaking_order
+
+    def test_topic_framing_includes_domains(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test-session",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        for domain in sample_classification.domains:
+            assert domain in orchestration.chairperson.topic_framing
+
+    def test_tone_default_exploratory_single_high_domain(self, mock_config, sample_roster):
+        """Single domain with high score → exploratory tone."""
+        classification = TopicClassification(
+            topic="Pure coding question",
+            domains=["coding"],
+            domain_scores={"coding": 0.95},
+            reasoning="single domain",
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=3,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert "Exploratory" in orchestration.tone.default_tone
+
+    def test_tone_default_structured_multi_domain(self, mock_config, sample_roster):
+        """Multi-domain with moderate scores → structured debate."""
+        classification = TopicClassification(
+            topic="Mixed question",
+            domains=["coding", "business"],
+            domain_scores={"coding": 0.7, "business": 0.6},
+            reasoning="multi-domain",
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=3,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert "Structured debate" in orchestration.tone.default_tone
+
+    def test_tone_default_risk_aware_safety_domain(self, mock_config, sample_roster):
+        """Safety/security domains → risk-aware tone."""
+        classification = TopicClassification(
+            topic="Security audit question",
+            domains=["security", "coding"],
+            domain_scores={"security": 0.9, "coding": 0.5},
+            reasoning="security topic",
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=3,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert "Risk-aware" in orchestration.tone.default_tone
+
+
+class TestOrchestrationEdgeCases:
+    def test_single_agent_council(self, mock_config, sample_classification):
+        """Orchestration works for single-agent council."""
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Solo Expert",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="solo expert persona",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=roster,
+            session_id="test",
+            council_size=1,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert orchestration.agent_count == 1
+        assert isinstance(orchestration.chairperson, ChairpersonInstructions)
+        assert isinstance(orchestration.tone, ToneGuidance)
+        assert isinstance(orchestration.convergence, ConvergenceGuidance)
+
+    def test_all_same_model(self, sample_classification):
+        """context_windows has one entry when all agents use same model."""
+        config = Config(
+            api_key="test-key",
+            model_pool=["model-only"],
+            capability_weights={
+                "model-only": CapabilityWeight(context_window=128000, coding=0.8, business=0.8),
+            },
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Agent A",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="a",
+                ),
+                Agent(
+                    name="Agent B",
+                    role="Builder",
+                    type="builder",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="b",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=roster,
+            session_id="test",
+            council_size=2,
+            include_wildcard=False,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert len(orchestration.context_windows) == 1
+        assert orchestration.context_windows[0].model == "model-only"
+
+    def test_missing_context_window(self, sample_classification):
+        """Models with None context_window are excluded from context_windows list."""
+        config = Config(
+            api_key="test-key",
+            model_pool=["model-no-cw"],
+            capability_weights={},
+        )
+        roster = AgentRoster(
+            agents=[
+                Agent(
+                    name="Test Agent",
+                    role="Expert",
+                    type="expert",
+                    tier=1,
+                    domains=["coding"],
+                    include_flag=True,
+                    persona="persona",
+                ),
+            ]
+        )
+        assembler = CouncilAssembler(config=config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=roster,
+            session_id="test",
+            council_size=1,
+            include_wildcard=False,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        assert len(orchestration.context_windows) == 0
+
+    def test_backward_compat_summary_present(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        """OrchestrationData.summary contains the old orchestration_notes content."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        notes = assembler._build_orchestration_notes(composition)
+        assert orchestration.summary == notes
+
+    def test_council_assembly_result_has_orchestration(
+        self, mock_config, sample_classification, sample_roster
+    ):
+        """CouncilAssemblyResult.orchestration is OrchestrationData type."""
+        assembler = CouncilAssembler(config=mock_config)
+        composition = assembler.assemble(
+            classification=sample_classification,
+            roster=sample_roster,
+            session_id="test",
+            council_size=5,
+        )
+        orchestration = assembler.build_orchestration_data(composition)
+        result = CouncilAssemblyResult(
+            composition=composition,
+            orchestration=orchestration,
+        )
+        assert isinstance(result.orchestration, OrchestrationData)
+        assert result.orchestration.agent_count == composition.council_size
 
 
 # Import at module level after fixtures are defined

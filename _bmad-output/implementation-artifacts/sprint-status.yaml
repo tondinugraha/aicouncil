@@ -1,5 +1,5 @@
 # generated: 2026-03-19
-# last_updated: 2026-03-21
+# last_updated: 2026-03-22
 # project: aicouncil
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-03-19
-last_updated: 2026-03-21
+last_updated: 2026-03-22
 project: aicouncil
 
 project_key: NOKEY
@@ -55,7 +55,7 @@ development_status:
   # Epic 2: AI Council Deliberation
   epic-2: in-progress
   2-1-council-assembly: done
-  2-2-council-orchestration-data: ready-for-dev
+  2-2-council-orchestration-data: done
   2-3-council-consensus-synthesis: backlog
   2-4-council-history-output: backlog
   2-5-end-to-end-integration: backlog

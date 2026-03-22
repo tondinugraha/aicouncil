@@ -95,8 +95,8 @@ async def ai_council(
             include_wildcard=include_wildcard,
         )
 
-        # Step 4: Build orchestration notes
-        orchestration_notes = assembler.build_orchestration_notes(composition)
+        # Step 4: Build orchestration data
+        orchestration = assembler.build_orchestration_data(composition)
 
         logger.info(
             "[council:%s] Council assembled: %d agents", session_id, len(composition.assignments)
@@ -104,7 +104,7 @@ async def ai_council(
 
         return CouncilAssemblyResult(
             composition=composition,
-            orchestration_notes=orchestration_notes,
+            orchestration=orchestration,
         )
 
     except CouncilError as e:

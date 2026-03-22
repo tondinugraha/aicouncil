@@ -12,7 +12,12 @@ from typing import Any
 from aicouncil.config import Config
 from aicouncil.council.schemas import (
     AgentAssignment,
+    ChairpersonInstructions,
+    ContextWindowInfo,
+    ConvergenceGuidance,
     CouncilComposition,
+    OrchestrationData,
+    ToneGuidance,
     TopicClassification,
 )
 from aicouncil.exceptions import CouncilError
@@ -406,7 +411,214 @@ class CouncilAssembler:
             "pinned_count": pinned_count,
         }
 
-    def build_orchestration_notes(self, composition: CouncilComposition) -> str:
+    def build_orchestration_data(self, composition: CouncilComposition) -> OrchestrationData:
+        """Build complete orchestration data from the assembled council."""
+        summary = self._build_orchestration_notes(composition)
+        chairperson = self._build_chairperson_instructions(composition)
+        tone = self._build_tone_guidance(composition)
+        convergence = self._build_convergence_guidance()
+        context_windows = self._build_context_windows(composition)
+
+        return OrchestrationData(
+            chairperson=chairperson,
+            tone=tone,
+            convergence=convergence,
+            context_windows=context_windows,
+            agent_count=len(composition.assignments),
+            summary=summary,
+        )
+
+    def _build_chairperson_instructions(
+        self, composition: CouncilComposition
+    ) -> ChairpersonInstructions:
+        """Build chairperson instructions from council composition."""
+        # Group agents by type for speaking order
+        grouped: dict[str, list[str]] = {"expert": [], "builder": [], "user": []}
+        for a in composition.assignments:
+            grouped.setdefault(a.agent_type, []).append(f"{a.agent_name} ({a.agent_role})")
+
+        known_types = {"expert", "builder", "user"}
+        for agent_type in grouped:
+            if agent_type not in known_types:
+                logger.warning(
+                    "[council] Unknown agent type '%s' — agents of this type will not appear "
+                    "in chairperson speaking order",
+                    agent_type,
+                )
+
+        roster_lines = []
+        for agent_type in ("expert", "builder", "user"):
+            if grouped.get(agent_type):
+                roster_lines.append(
+                    f"  {agent_type.capitalize()}s: {', '.join(grouped[agent_type])}"
+                )
+
+        roster_str = "\n".join(roster_lines)
+
+        speaking_order = (
+            "Address agents in rounds. Each round, have every agent respond to the topic or "
+            "to the previous round's positions. Vary speaking order between rounds to prevent "
+            "anchoring bias. Start with domain experts most relevant to the topic, then builders, "
+            "then user perspectives. In subsequent rounds, let dissenters speak first to ensure "
+            "minority positions get airtime.\n\n"
+            f"Council:\n{roster_str}"
+        )
+
+        # Build domain-specific debate trigger
+        domains = composition.classification.domains
+        domain_trigger = (
+            f"A critical perspective from {'/'.join(domains)} is not being challenged"
+            if domains
+            else "A critical domain perspective is not being challenged"
+        )
+
+        debate_triggers = (
+            "Introduce adversarial debate when:\n"
+            "- All agents agree on a position within the first 1-2 rounds (premature convergence)\n"
+            f"- {domain_trigger}\n"
+            "- A convenience-first proposal hasn't been stress-tested\n\n"
+            "Devil's advocate technique: Ask a specific agent to argue the opposite position. "
+            "Choose agents whose domain gives them standing to challenge."
+        )
+
+        conclusion_driving = (
+            "Drive toward conclusion when:\n"
+            "- Key positions are well-established and repeated across agents\n"
+            "- New rounds are producing diminishing novel insights\n"
+            "- Major disagreements have been explored from multiple angles\n\n"
+            "Conclusion technique: Summarize areas of agreement, then explicitly ask each agent "
+            "for a one-sentence final position on remaining disagreements."
+        )
+
+        # Topic framing from classification
+        scores = composition.classification.domain_scores
+        score_parts = [f"{d} ({s:.1f})" for d, s in sorted(scores.items(), key=lambda x: -x[1])]
+        domains_label = "/".join(domains) if domains else "the primary domain"
+        domains_scores_label = ", ".join(score_parts) if score_parts else "unclassified"
+        topic_framing = (
+            f"Topic: '{composition.topic}'\n"
+            f"Primary domains: {domains_scores_label}\n"
+            f"Frame this as a {domains_label} question. "
+            f"Ensure agents address all domain perspectives."
+        )
+
+        return ChairpersonInstructions(
+            speaking_order=speaking_order,
+            debate_triggers=debate_triggers,
+            conclusion_driving=conclusion_driving,
+            topic_framing=topic_framing,
+        )
+
+    def _build_tone_guidance(self, composition: CouncilComposition) -> ToneGuidance:
+        """Build tone guidance based on council composition and topic."""
+        scores = composition.classification.domain_scores
+        domains = composition.classification.domains
+        max_score = max(scores.values()) if scores else 0.0
+
+        # Determine default tone based on topic nature
+        safety_domains = {"security", "safety", "risk", "compliance"}
+        has_safety = any(d.lower() in safety_domains for d in domains)
+
+        if has_safety:
+            default_tone = (
+                "Risk-aware: Prioritize surfacing risks and potential failure modes before "
+                "evaluating solutions. Safety/security concerns take precedence."
+            )
+        elif len(domains) > 1 and max_score <= 0.8:
+            default_tone = (
+                "Structured debate: Each domain expert presents their perspective first, "
+                "establishing the multi-faceted nature of the topic before cross-examination."
+            )
+        else:
+            default_tone = (
+                "Exploratory: Gather diverse perspectives and approaches before narrowing. "
+                "Encourage creative and unconventional viewpoints early."
+            )
+
+        adversarial_triggers = (
+            "Shift to adversarial/devil's advocate when:\n"
+            "- More than 2/3 of agents agree on a position before round 3\n"
+            "- A domain expert's core concern is being dismissed by majority\n"
+            "- The topic involves risk/cost tradeoffs where the 'easy' option is being favored\n"
+            "- Wildcard agent raises a cross-domain concern that gets ignored"
+        )
+
+        agreement_triggers = (
+            "Shift to agreement-seeking when:\n"
+            "- Key disagreements have been explored for 2+ rounds\n"
+            "- Agents are repeating positions without new arguments\n"
+            "- A compromise position has been proposed and partially endorsed\n"
+            "- Domain experts in the most relevant domains are aligned"
+        )
+
+        tone_shift_rules = (
+            "- Never stay in adversarial mode for more than 2 consecutive rounds\n"
+            "- Return to exploratory/structured mode after adversarial challenge\n"
+            "- If adversarial mode produces new insights, continue exploring those\n"
+            "- Agreement-seeking is the final phase — once entered, don't revert to adversarial "
+            "unless a genuinely new concern surfaces"
+        )
+
+        return ToneGuidance(
+            default_tone=default_tone,
+            adversarial_triggers=adversarial_triggers,
+            agreement_triggers=agreement_triggers,
+            tone_shift_rules=tone_shift_rules,
+        )
+
+    def _build_convergence_guidance(self) -> ConvergenceGuidance:
+        """Build convergence evaluation criteria."""
+        return ConvergenceGuidance(
+            evaluation_criteria=(
+                "After each round, evaluate:\n"
+                "1. Position clustering — Are agents grouping into distinct camps, or is there a "
+                "dominant position?\n"
+                "2. Novelty — Did this round surface new arguments, or are agents repeating?\n"
+                "3. Domain alignment — Are the most domain-relevant experts converging?\n"
+                "4. Wildcard insight — Has the wildcard agent contributed a unique perspective?"
+            ),
+            continue_signals=(
+                "Continue deliberation when:\n"
+                "- New arguments or perspectives emerged in the last round\n"
+                "- A domain expert strongly dissents and hasn't been adequately addressed\n"
+                "- The wildcard agent raised a cross-domain concern that hasn't been explored\n"
+                "- Less than half the council has stated a clear position"
+            ),
+            consensus_signals=(
+                "Drive toward consensus when:\n"
+                "- Agents are restating previous positions with minor variations\n"
+                "- Domain experts in the primary domains are aligned\n"
+                "- Remaining disagreements are about implementation details, not direction\n"
+                "- 3+ rounds have passed with diminishing novelty per round"
+            ),
+            no_fixed_rounds=(
+                "There is no fixed round limit. Evaluate dynamically after each round. A simple "
+                "topic with early convergence may conclude in 2 rounds. A complex multi-domain "
+                "topic with genuine disagreement may run 5+ rounds. Quality of conclusion matters "
+                "more than speed."
+            ),
+        )
+
+    def _build_context_windows(self, composition: CouncilComposition) -> list[ContextWindowInfo]:
+        """Build context window metadata for adaptive context management."""
+        seen_models: set[str] = set()
+        windows: list[ContextWindowInfo] = []
+        for assignment in composition.assignments:
+            model = assignment.assigned_model
+            if model in seen_models:
+                continue
+            seen_models.add(model)
+            cw = assignment.context_window
+            if cw is not None and cw > 0:
+                windows.append(
+                    ContextWindowInfo(
+                        model=model,
+                        context_window=cw,
+                    )
+                )
+        return windows
+
+    def _build_orchestration_notes(self, composition: CouncilComposition) -> str:
         """Build orchestration notes string from the composition."""
         assignments = composition.assignments
         type_counts = Counter(a.agent_type for a in assignments)
