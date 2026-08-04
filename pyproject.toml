@@ -17,7 +17,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "mcp>=1.0.0",
+    # Upper-bounded on purpose: SDK 2.0.0 removed `mcp.server.fastmcp`
+    # (FastMCP -> mcp.server.mcpserver.MCPServer). server.py still imports the
+    # 1.x API. Lift this bound only together with the 2.x migration.
+    "mcp>=1.0.0,<2",
     "httpx>=0.28.0",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
